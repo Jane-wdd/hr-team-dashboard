@@ -1,0 +1,16 @@
+logs/
+.logs/
+*.log
+start.sh
+mock.js
+dingtalk-bridge.js
+aitable-*.js
+aitable-*.json
+aitable-*.html
+contract/
+design-contract.md
+README-Supabase.md
+*.sql
+assets/
+publish/
+deprecated/

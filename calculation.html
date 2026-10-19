@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>积分计算逻辑 — HR实施工作台</title>
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    /* 页面专属样式 */
+    .formula-box {
+      transition: background .2s ease;
+      cursor: default;
+    }
+    .formula-box:hover {
+      background: var(--primary-light);
+      border-color: var(--primary);
+    }
+    .formula-desc {
+      font-size: 13px;
+      color: var(--text-sub);
+      margin-top: 8px;
+      font-family: var(--font);
+      line-height: 1.6;
+    }
+
+    /* 流程图 */
+    .flow-chart {
+      display: flex;
+      align-items: stretch;
+      gap: 0;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    .flow-step {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 20px 16px;
+      box-shadow: var(--shadow-sm);
+      max-width: 180px;
+      flex: 1;
+      min-width: 160px;
+      text-align: center;
+      transition: box-shadow .2s ease, transform .2s ease;
+      position: relative;
+    }
+    .flow-step:hover {
+      box-shadow: var(--shadow-lg);
+      transform: translateY(-2px);
+    }
+    .flow-step-icon {
+      width: 44px; height: 44px;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      margin: 0 auto 12px;
+      background: var(--primary-light);
+      color: var(--primary);
+    }
+    .flow-step:nth-child(1) .flow-step-icon { background: var(--info-light); color: var(--info); }
+    .flow-step:nth-child(3) .flow-step-icon { background: var(--warning-light); color: var(--warning); }
+    .flow-step:nth-child(5) .flow-step-icon { background: var(--success-light); color: var(--success); }
+    .flow-step:nth-child(7) .flow-step-icon { background: var(--danger-light); color: var(--danger); }
+    .flow-step:nth-child(9) .flow-step-icon { background: var(--primary-light); color: var(--primary); }
+    .flow-step-num {
+      position: absolute;
+      top: -10px; left: 50%;
+      transform: translateX(-50%);
+      width: 24px; height: 24px;
+      border-radius: 50%;
+      background: var(--primary);
+      color: #fff;
+      font-size: 12px;
+      font-weight: 700;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .flow-step-title { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
+    .flow-step-desc { font-size: 12px; color: var(--text-sub); line-height: 1.5; }
+    .flow-arrow {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-muted);
+      padding: 0 4px;
+      flex-shrink: 0;
+    }
+    @media (max-width: 768px) {
+      .flow-chart { flex-direction: column; align-items: center; }
+      .flow-arrow { transform: rotate(90deg); padding: 8px 0; }
+    }
+
+    /* 计算示例进度条 */
+    .rate-bar-group { margin-top: 20px; display: flex; flex-direction: column; gap: 16px; }
+    .rate-bar-item {}
+    .rate-bar-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+    .rate-bar-header span:first-child { font-size: 13px; font-weight: 600; color: var(--text); }
+    .rate-bar-header span:last-child { font-size: 14px; font-weight: 700; color: var(--primary); }
+    .rate-bar-item.projected .rate-bar-header span:last-child { color: var(--info); }
+
+    /* 关键指标颜色 */
+    .metric-value-primary { color: var(--primary); font-weight: 700; }
+    .metric-value-success { color: var(--success); font-weight: 700; }
+    .metric-value-warning { color: var(--warning); font-weight: 700; }
+    .metric-value-info { color: var(--info); font-weight: 700; }
+    .metric-value-danger { color: var(--danger); font-weight: 700; }
+    .metric-value-text { color: var(--text); font-weight: 700; }
+
+    /* 规则列表 */
+    .rules-list { counter-reset: rule-counter; list-style: none; padding: 0; }
+    .rules-list li {
+      counter-increment: rule-counter;
+      position: relative;
+      padding: 12px 0 12px 40px;
+      border-bottom: 1px solid var(--border);
+      font-size: 14px;
+      color: var(--text);
+      line-height: 1.6;
+    }
+    .rules-list li:last-child { border-bottom: none; }
+    .rules-list li::before {
+      content: counter(rule-counter);
+      position: absolute;
+      left: 0; top: 12px;
+      width: 26px; height: 26px;
+      border-radius: 50%;
+      background: var(--primary-light);
+      color: var(--primary);
+      font-size: 13px;
+      font-weight: 700;
+      display: flex; align-items: center; justify-content: center;
+    }
+
+    /* 提示框 */
+    .info-tip {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 14px 16px;
+      border-radius: var(--radius-md);
+      background: var(--info-light);
+      border: 1px solid var(--info);
+      margin-top: 20px;
+      font-size: 13px;
+      color: var(--text);
+      line-height: 1.6;
+    }
+    .info-tip svg { color: var(--info); flex-shrink: 0; margin-top: 1px; }
+
+    .formula-box .var { color: var(--primary); font-weight: 600; }
+    .formula-box .op { color: var(--text-sub); }
+    .formula-box .result { color: var(--success); font-weight: 700; }
+    .formula-box .num { color: var(--info); font-weight: 600; }
+
+    .section-gap { margin-bottom: 24px; }
+    .section-gap:last-child { margin-bottom: 0; }
+  </style>
+</head>
+<body data-page="calculation">
+  <aside class="app-nav">
+    <div class="nav-brand">
+      <div class="nav-brand-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11H5a2 2 0 0 0-2 2v7h6V11Z"/><path d="M19 11h-6v9h6v-9Z"/><path d="M15 3.5 12 7l-3-3.5L12 1l3 2.5Z"/></svg>
+      </div>
+      <div class="nav-brand-text">HR实施工作台<small>项目进度 · 积分追踪</small></div>
+    </div>
+    <nav class="nav-items">
+      <a href="index.html" data-nav="dashboard">团队看板</a>
+      <a href="members.html" data-nav="members">成员工作台</a>
+      <a href="owner-view.html" data-nav="owner">负责人视图</a>
+      <a href="projects.html" data-nav="projects">项目列表</a>
+      <a href="calculation.html" data-nav="calculation">积分计算</a>
+    </nav>
+    <div class="nav-footer">
+      <div class="nav-footer-avatar">吴</div>
+      <div class="nav-footer-info"><strong>吴丹丹</strong><span>实施主管</span></div>
+    </div>
+  </aside>
+  <main class="app-content">
+    <div class="page-header">
+      <div class="page-header-left">
+        <h1>积分计算逻辑</h1>
+        <p>了解项目积分与季度完成率的计算规则</p>
+      </div>
+      <div class="page-header-actions">
+        <button class="btn btn-ghost" id="btn-download">
+          <span id="icon-download"></span>下载计算说明
+        </button>
+      </div>
+    </div>
+    <div class="page-body">
+      <!-- 1. 概览区 -->
+      <div class="grid grid-3 section-gap">
+        <div class="kpi-card fade-in">
+          <div class="kpi-label"><span id="icon-target"></span>季度目标积分</div>
+          <div class="kpi-value" id="kpi-target">—<small>分</small></div>
+        </div>
+        <div class="kpi-card success fade-in">
+          <div class="kpi-label"><span id="icon-check"></span>当前已完成积分</div>
+          <div class="kpi-value" id="kpi-current">—<small>分</small></div>
+          <div class="kpi-trend up"><span id="icon-trend-up"></span><span id="kpi-current-rate">—</span></div>
+        </div>
+        <div class="kpi-card info fade-in">
+          <div class="kpi-label"><span id="icon-trending"></span>预计季度积分</div>
+          <div class="kpi-value" id="kpi-projected">—<small>分</small></div>
+          <div class="kpi-trend up"><span id="icon-trend-up2"></span><span id="kpi-projected-rate">—</span></div>
+        </div>
+      </div>
+
+      <!-- 2. 核心公式说明 -->
+      <div class="card section-gap fade-in">
+        <div class="card-header">
+          <div>
+            <h3>积分完成率计算公式</h3>
+            <p class="card-sub">以下公式定义了当前完成率和预计完成率的计算逻辑</p>
+          </div>
+        </div>
+        <div class="card-body">
+          <div style="display: flex; flex-direction: column; gap: 16px;">
+            <div>
+              <div class="formula-box">
+                <span class="var">项目完成率</span> <span class="op">=</span> <span class="var">项目已完成积分</span> <span class="op">/</span> <span class="var">项目计划积分</span> <span class="op">&times; 100%</span>
+              </div>
+              <div class="formula-desc">计算单个项目的完成进度，反映项目实施进度的核心指标。</div>
+            </div>
+            <div>
+              <div class="formula-box">
+                <span class="var">当前积分完成率</span> <span class="op">=</span> &Sigma;<span class="op">(</span><span class="var">所有项目已完成积分</span><span class="op">) /</span> <span class="var">季度目标积分</span> <span class="op">&times; 100%</span>
+              </div>
+              <div class="formula-desc">汇总全团队所有项目已获得的积分，与季度目标对比，反映当前实际完成进度。</div>
+            </div>
+            <div>
+              <div class="formula-box">
+                <span class="var">预计完成积分</span> <span class="op">=</span> <span class="var">当前积分</span> <span class="op">+</span> &Sigma;<span class="op">(</span><span class="var">实施中/维护中项目</span> <span class="op">×</span> <span class="var">预计完成系数</span><span class="op">)</span>
+              </div>
+              <div class="formula-desc">预计完成积分 = 当前积分 + 各项目预计完成积分之和。仅计入状态为「实施中」「维护中」且「是否本季度交付/移交」不为「否」的项目；每个项目的预计完成积分 = 模块实施积分 × 预计完成系数。</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3. 计算流程图 -->
+      <div class="card section-gap fade-in">
+        <div class="card-header">
+          <div>
+            <h3>积分计算流程</h3>
+            <p class="card-sub">从项目状态到季度完成率的完整计算链路</p>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="flow-chart" id="flow-chart">
+            <!-- JS 渲染 -->
+          </div>
+        </div>
+      </div>
+
+      <!-- 4. 计算示例 -->
+      <div class="card section-gap fade-in">
+        <div class="card-header">
+          <div>
+            <h3>实际计算示例</h3>
+            <p class="card-sub">以当前 Q3 季度数据为例的完整计算演示</p>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="table-wrap" style="overflow-x: auto;">
+            <table class="data-table" id="example-table">
+              <thead>
+                <tr>
+                  <th>成员</th>
+                  <th class="col-center">负责项目数</th>
+                  <th class="col-center">计划总积分</th>
+                  <th class="col-center">已完成积分</th>
+                  <th class="col-center">当前完成率</th>
+                  <th class="col-center">预计完成积分</th>
+                  <th class="col-center">预计完成率</th>
+                </tr>
+              </thead>
+              <tbody id="example-tbody">
+                <!-- JS 渲染 -->
+              </tbody>
+            </table>
+          </div>
+
+          <div style="margin-top: 20px; display: flex; flex-direction: column; gap: 12px;">
+            <div class="formula-box">
+              <span class="var">当前完成率</span> <span class="op">=</span> <span class="num">403</span> <span class="op">/</span> <span class="num">1000</span> <span class="op">&times; 100% =</span> <span class="result">40.3%</span>
+            </div>
+            <div class="formula-box">
+              <span class="var">预计完成率</span> <span class="op">=</span> <span class="num">720</span> <span class="op">/</span> <span class="num">1000</span> <span class="op">&times; 100% =</span> <span class="result">72.0%</span>
+            </div>
+          </div>
+
+          <div class="rate-bar-group">
+            <div class="rate-bar-item">
+              <div class="rate-bar-header">
+                <span>当前积分完成率</span>
+                <span id="current-rate-text">40.3%</span>
+              </div>
+              <div class="progress-bar" style="height: 12px;">
+                <div class="progress-bar-fill" id="current-rate-bar" style="width: 0%;"></div>
+              </div>
+            </div>
+            <div class="rate-bar-item projected">
+              <div class="rate-bar-header">
+                <span>预计季度完成率</span>
+                <span id="projected-rate-text">72.0%</span>
+              </div>
+              <div class="progress-bar" style="height: 12px;">
+                <div class="progress-bar-fill" id="projected-rate-bar" style="width: 0%; background: var(--info);"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 5. 关键指标定义 -->
+      <div class="card section-gap fade-in">
+        <div class="card-header">
+          <div>
+            <h3>关键指标定义</h3>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="info-row">
+            <span class="info-row-label">季度目标积分</span>
+            <span class="info-row-value metric-value-primary">1000 分</span>
+          </div>
+          <div class="info-row">
+            <span class="info-row-label">项目计划积分</span>
+            <span class="info-row-value metric-value-text">依据项目复杂度设定</span>
+          </div>
+          <div class="info-row">
+            <span class="info-row-label">已完成积分</span>
+            <span class="info-row-value metric-value-success">按进度比例已获得</span>
+          </div>
+          <div class="info-row">
+            <span class="info-row-label">预计完成积分</span>
+            <span class="info-row-value metric-value-info">当前积分 + 实施中/维护中项目（模块实施积分 × 预计完成系数），排除「是否本季度交付/移交」为「否」的项目</span>
+          </div>
+          <div class="info-row">
+            <span class="info-row-label">当前完成率</span>
+            <span class="info-row-value metric-value-warning">40.3%</span>
+          </div>
+          <div class="info-row">
+            <span class="info-row-label">预计完成率</span>
+            <span class="info-row-value metric-value-info">72.0%</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 6. 积分规则说明 -->
+      <div class="card section-gap fade-in">
+        <div class="card-header">
+          <div>
+            <h3>积分获取规则</h3>
+          </div>
+        </div>
+        <div class="card-body">
+          <ol class="rules-list">
+            <li>项目状态为<span style="color: var(--success); font-weight: 600;">"已完成"</span>时，获得该项目全部计划积分</li>
+            <li>项目状态为<span style="color: var(--warning); font-weight: 600;">"测试中"</span>时，按已完成积分计入（通常为计划积分的 80-90%）</li>
+            <li>项目状态为<span style="color: var(--primary); font-weight: 600;">"进行中"</span>时，按实际完成进度计算积分</li>
+            <li>项目状态为<span style="color: var(--text-sub); font-weight: 600;">"规划中"</span>时，不计入当前积分，但计入预计积分（按计划完成概率折算）</li>
+            <li>项目状态为<span style="color: var(--danger); font-weight: 600;">"阻塞中"</span>时，已完成积分计入，但预计积分按 50% 折算</li>
+          </ol>
+          <div class="info-tip">
+            <span id="icon-info-tip"></span>
+            <span>积分每周一由实施主管更新，请确保项目状态准确。如有疑问请联系实施主管吴丹丹。</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabase-config.js"></script>
+  <script src="api.js?v=22"></script>
+  <script src="components.js?v=7"></script>
+  <script>
+    // ========== 渲染概览 KPI ==========
+    function renderOverview() {
+      const q = quarterData;
+      const currentRate = calcCompletionRate(q.teamCurrentPoints, q.teamTargetPoints, 2);
+      const projectedRate = calcCompletionRate(q.teamProjectedPoints, q.teamTargetPoints, 2);
+
+      document.getElementById('kpi-target').innerHTML = `${q.teamTargetPoints}<small>分</small>`;
+      document.getElementById('kpi-current').innerHTML = `${q.teamCurrentPoints}<small>分</small>`;
+      document.getElementById('kpi-current-rate').textContent = `完成率 ${currentRate}%`;
+      document.getElementById('kpi-projected').innerHTML = `${q.teamProjectedPoints}<small>分</small>`;
+      document.getElementById('kpi-projected-rate').textContent = `预计完成率 ${projectedRate}%`;
+    }
+
+    // ========== 渲染流程图 ==========
+    function renderFlowChart() {
+      const steps = [
+        { num: 1, icon: 'refresh', title: '项目状态更新', desc: '每周更新各项目状态和已完成积分' },
+        { num: 2, icon: 'calculator', title: '单项目积分计算', desc: '项目完成率 = 已完成 / 计划' },
+        { num: 3, icon: 'user', title: '成员积分汇总', desc: '按负责人汇总已完成积分' },
+        { num: 4, icon: 'users', title: '团队积分汇总', desc: '全团队已完成积分求和' },
+        { num: 5, icon: 'target', title: '完成率计算', desc: '当前完成率 + 预计完成率' },
+      ];
+
+      let html = '';
+      steps.forEach((step, i) => {
+        html += `
+          <div class="flow-step">
+            <div class="flow-step-num">${step.num}</div>
+            <div class="flow-step-icon">${icon(step.icon, 22)}</div>
+            <div class="flow-step-title">${step.title}</div>
+            <div class="flow-step-desc">${step.desc}</div>
+          </div>
+        `;
+        if (i < steps.length - 1) {
+          html += `<div class="flow-arrow">${icon('chevron-right', 24)}</div>`;
+        }
+      });
+      document.getElementById('flow-chart').innerHTML = html;
+    }
+
+    // ========== 渲染计算示例表格 ==========
+    function renderExampleTable() {
+      const q = quarterData;
+      const tbody = document.getElementById('example-tbody');
+
+      let totalProjects = 0;
+      let totalPlanned = 0;
+      let totalCompleted = 0;
+      let totalProjected = 0;
+
+      const rows = membersData.filter(isTeamCountedMember).map(m => {
+        // 计算该成员负责的项目
+        const memberProjects = projectsData.filter(p => p.ownerId === m.id);
+        const plannedTotal = memberProjects.reduce((s, p) => s + p.plannedPoints, 0);
+        const completed = m.currentPoints;
+        const projected = m.projectedPoints;
+        const currentRate = calcCompletionRate(completed, m.quarterlyTarget, 2);
+        const projectedRate = calcCompletionRate(projected, m.quarterlyTarget, 2);
+
+        totalProjects += memberProjects.length;
+        totalPlanned += plannedTotal;
+        totalCompleted += completed;
+        totalProjected += projected;
+
+        return `
+          <tr>
+            <td>
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <span class="avatar avatar-sm" style="background:${m.color}20; color:${m.color};">${m.initials}</span>
+                ${m.name}
+              </div>
+            </td>
+            <td class="col-center">${memberProjects.length}</td>
+            <td class="col-center">${plannedTotal}</td>
+            <td class="col-center" style="font-weight: 600; color: var(--success);">${completed}</td>
+            <td class="col-center">${currentRate}%</td>
+            <td class="col-center" style="font-weight: 600; color: var(--info);">${projected}</td>
+            <td class="col-center">${projectedRate}%</td>
+          </tr>
+        `;
+      }).join('');
+
+      totalCompleted = Math.round(totalCompleted * 100) / 100;
+      totalProjected = Math.round(totalProjected * 100) / 100;
+      const teamCurrentRate = calcCompletionRate(totalCompleted, q.teamTargetPoints, 2);
+      const teamProjectedRate = calcCompletionRate(totalProjected, q.teamTargetPoints, 2);
+
+      tbody.innerHTML = rows + `
+        <tr style="background: var(--surface-alt); font-weight: 700;">
+          <td>团队合计</td>
+          <td class="col-center">${totalProjects}</td>
+          <td class="col-center">${totalPlanned}</td>
+          <td class="col-center" style="color: var(--success);">${totalCompleted}</td>
+          <td class="col-center" style="color: var(--warning);">${teamCurrentRate}%</td>
+          <td class="col-center" style="color: var(--info);">${totalProjected}</td>
+          <td class="col-center" style="color: var(--info);">${teamProjectedRate}%</td>
+        </tr>
+      `;
+    }
+
+    // ========== 渲染进度条（带动画） ==========
+    function animateProgressBars() {
+      const q = quarterData;
+      const currentRate = parseFloat(calcCompletionRate(q.teamCurrentPoints, q.teamTargetPoints, 2));
+      const projectedRate = parseFloat(calcCompletionRate(q.teamProjectedPoints, q.teamTargetPoints, 2));
+
+      document.getElementById('current-rate-text').textContent = `${currentRate.toFixed(2)}%`;
+      document.getElementById('projected-rate-text').textContent = `${projectedRate.toFixed(2)}%`;
+
+      setTimeout(() => {
+        document.getElementById('current-rate-bar').style.width = `${currentRate}%`;
+        document.getElementById('projected-rate-bar').style.width = `${projectedRate}%`;
+      }, 200);
+    }
+
+    // ========== 数据缓存 ==========
+    let quarterData = null;
+    let membersData = [];
+    let projectsData = [];
+
+    // ========== 初始化 ==========
+    async function init() {
+      // 设置图标
+      document.getElementById('icon-download').innerHTML = icon('layers', 16);
+      document.getElementById('icon-target').innerHTML = icon('target', 16);
+      document.getElementById('icon-check').innerHTML = icon('check-circle', 16);
+      document.getElementById('icon-trending').innerHTML = icon('trending-up', 16);
+      document.getElementById('icon-trend-up').innerHTML = icon('trending-up', 14);
+      document.getElementById('icon-trend-up2').innerHTML = icon('trending-up', 14);
+      document.getElementById('icon-info-tip').innerHTML = icon('info', 18);
+
+      // 下载按钮
+      document.getElementById('btn-download').addEventListener('click', () => {
+        showToast('计算说明文档下载中...', 'success');
+      });
+
+      // 切回本页时自动刷新
+      bindAutoRefresh(loadCalcData);
+
+      // 加载并渲染
+      await loadCalcData();
+    }
+
+    // 通过 API 异步加载数据并渲染各模块
+    async function loadCalcData() {
+      const [quarterRes, membersRes, projectsRes] = await Promise.all([
+        API.getQuarterOverview(),
+        API.getMembers(),
+        API.getProjects()
+      ]);
+      quarterData = quarterRes.data;
+      membersData = membersRes.data;
+      projectsData = projectsRes.data;
+
+      renderOverview();
+      renderFlowChart();
+      renderExampleTable();
+      animateProgressBars();
+    }
+
+    init();
+  </script>
+</body>
+</html>

@@ -1,0 +1,1988 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>项目列表 — HR实施工作台</title>
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    /* 页面专属样式 */
+    .stat-card {
+      background: var(--surface);
+      border-radius: var(--radius-lg);
+      border: 1px solid var(--border);
+      padding: 16px 18px;
+      box-shadow: var(--shadow-sm);
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      position: relative;
+      overflow: hidden;
+    }
+    .stat-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 3px;
+      background: var(--primary);
+    }
+    .stat-card.info::before { background: var(--info); }
+    .stat-card.warning::before { background: var(--warning); }
+    .stat-card.success::before { background: var(--success); }
+    .stat-card.danger::before { background: var(--danger); }
+    .stat-card-icon {
+      width: 40px; height: 40px;
+      border-radius: var(--radius-md);
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+      background: var(--primary-light);
+      color: var(--primary);
+    }
+    .stat-card.info .stat-card-icon { background: var(--info-light); color: var(--info); }
+    .stat-card.warning .stat-card-icon { background: var(--warning-light); color: var(--warning); }
+    .stat-card.success .stat-card-icon { background: var(--success-light); color: var(--success); }
+    .stat-card.danger .stat-card-icon { background: var(--danger-light); color: var(--danger); }
+    .stat-card-value { font-size: 26px; font-weight: 700; color: var(--text); line-height: 1.1; }
+    .stat-card-label { font-size: 12px; color: var(--text-sub); margin-top: 2px; }
+
+    .search-wrapper { position: relative; flex: 1; min-width: 200px; max-width: 320px; }
+    .search-wrapper svg { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--text-muted); pointer-events: none; }
+    .search-input {
+      width: 100%;
+      padding: 7px 12px 7px 34px;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border-strong);
+      font-size: 13px;
+      background: var(--surface);
+      color: var(--text);
+      font-family: inherit;
+    }
+    .search-input:focus { outline: none; border-color: var(--primary); }
+
+    .progress-cell { display: flex; align-items: center; gap: 8px; min-width: 120px; }
+    .progress-cell .progress-bar { flex: 1; }
+    .progress-cell span { font-size: 12px; font-weight: 600; color: var(--text); min-width: 36px; text-align: right; }
+
+    .owner-link { display: inline-flex; align-items: center; gap: 6px; color: var(--text); cursor: pointer; }
+    .owner-link:hover { color: var(--primary); }
+
+    .project-name-link { color: var(--primary); cursor: pointer; font-weight: 500; }
+    .project-name-link:hover { text-decoration: underline; }
+
+    .action-btns { display: flex; gap: 4px; }
+
+    .loading-row td { padding: 16px; }
+    .loading-skeleton {
+      display: inline-block;
+      height: 14px;
+      border-radius: 4px;
+      background: linear-gradient(90deg, var(--border) 25%, var(--surface-alt) 50%, var(--border) 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.5s infinite;
+    }
+    @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+
+    .modal { max-width: 640px; }
+    .modal-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+    @media (max-width: 600px) { .modal-grid { grid-template-columns: 1fr; } }
+    .modal-section-title { font-size: 13px; font-weight: 600; color: var(--text-sub); margin-bottom: 8px; text-transform: uppercase; letter-spacing: .5px; }
+
+    .completion-rate-big { font-size: 32px; font-weight: 700; color: var(--primary); line-height: 1.2; }
+    .completion-rate-big.success { color: var(--success); }
+
+    .status-select-full { width: 100%; padding: 8px 12px; border-radius: var(--radius-md); border: 1px solid var(--border-strong); font-size: 14px; background: var(--surface); color: var(--text); font-family: inherit; cursor: pointer; }
+    .status-select-full:focus { outline: none; border-color: var(--primary); }
+    .status-textarea { width: 100%; padding: 8px 12px; border-radius: var(--radius-md); border: 1px solid var(--border-strong); font-size: 14px; background: var(--surface); color: var(--text); font-family: inherit; resize: vertical; min-height: 80px; margin-top: 12px; }
+    .status-textarea:focus { outline: none; border-color: var(--primary); }
+    .form-label { font-size: 13px; font-weight: 600; color: var(--text-sub); margin-bottom: 6px; display: block; }
+
+    .table-wrap { overflow-x: auto; }
+
+    /* ========== 新增项目模态框 ========== */
+    .add-tabs {
+      display: flex;
+      border-bottom: 1px solid var(--border);
+      padding: 0 20px;
+    }
+    .add-tab {
+      padding: 12px 16px;
+      background: transparent;
+      border: none;
+      border-bottom: 2px solid transparent;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-sub);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all .15s;
+    }
+    .add-tab:hover { color: var(--text); }
+    .add-tab.active { color: var(--primary); border-bottom-color: var(--primary); }
+    .add-tab svg { width: 16px; height: 16px; }
+    .add-tab-panel { display: none; padding: 20px; }
+    .add-tab-panel.active { display: block; }
+
+    .add-form .form-row { display: flex; gap: 16px; margin-bottom: 14px; }
+    .add-form .form-group { flex: 1; }
+    .add-form .form-input {
+      width: 100%;
+      padding: 8px 12px;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border-strong);
+      font-size: 14px;
+      background: var(--surface);
+      color: var(--text);
+      font-family: inherit;
+    }
+    .add-form .form-input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-light); }
+    .req { color: var(--danger); font-size: 12px; }
+
+    .upload-zone {
+      border: 2px dashed var(--border-strong);
+      border-radius: var(--radius-lg);
+      padding: 40px 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: all .15s;
+      margin-bottom: 20px;
+    }
+    .upload-zone:hover, .upload-zone.dragover {
+      border-color: var(--primary);
+      background: var(--primary-light);
+    }
+    .upload-zone p { margin: 8px 0; color: var(--text-sub); font-size: 14px; }
+    .upload-link { color: var(--primary); font-weight: 600; text-decoration: underline; }
+    .upload-hint { font-size: 12px; color: var(--text-muted); }
+
+    .import-tips { padding: 14px; background: var(--surface-alt); border-radius: var(--radius-md); }
+    .import-tips p { font-size: 12px; color: var(--text-sub); margin-bottom: 8px; }
+    .field-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+    .field-chips span {
+      font-size: 12px;
+      padding: 3px 8px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      color: var(--text-sub);
+    }
+
+    .mapping-section { margin-bottom: 20px; }
+    .mapping-section h4, .preview-section h4 {
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 12px;
+      color: var(--text);
+    }
+    .mapping-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 10px;
+    }
+    .mapping-row label { font-size: 13px; color: var(--text-sub); width: 120px; flex-shrink: 0; }
+    .mapping-row select {
+      flex: 1;
+      padding: 6px 10px;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border-strong);
+      font-size: 13px;
+      background: var(--surface);
+    }
+    .mapping-row select:focus { outline: none; border-color: var(--primary); }
+
+    .preview-section { margin-top: 16px; }
+    .preview-section .table-wrap { max-height: 240px; overflow-y: auto; border: 1px solid var(--border); border-radius: var(--radius-md); }
+    .preview-section th, .preview-section td { font-size: 12px; padding: 6px 10px; white-space: nowrap; }
+
+    .dingtalk-guide { margin-bottom: 16px; }
+    .dingtalk-guide h4 { font-size: 14px; font-weight: 600; margin-bottom: 10px; }
+    .dingtalk-guide p { font-size: 13px; color: var(--text-sub); margin-top: 8px; line-height: 1.7; }
+    .dingtalk-guide code {
+      background: var(--surface-alt);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 12px;
+      font-family: var(--font-mono);
+    }
+
+    .import-step { padding: 0; }
+
+    .field-info-chip {
+      display: inline-block;
+      font-size: 11px;
+      padding: 2px 8px;
+      margin: 2px;
+      background: var(--surface-alt);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      color: var(--text-sub);
+    }
+
+    /* ========== 数据校验样式 ========== */
+    .form-group.has-error .form-input {
+      border-color: var(--danger);
+      box-shadow: 0 0 0 3px var(--danger-light);
+    }
+    .form-input.error-flash {
+      animation: errorFlash .3s ease;
+    }
+    @keyframes errorFlash {
+      0%, 100% { border-color: var(--danger); }
+      50% { border-color: var(--warning); }
+    }
+    .field-error {
+      display: none;
+      font-size: 12px;
+      color: var(--danger);
+      margin-top: 4px;
+      gap: 4px;
+      align-items: center;
+    }
+    .field-error.show { display: flex; }
+    .field-error svg { width: 14px; height: 14px; flex-shrink: 0; }
+
+    .validation-summary {
+      margin-top: 16px;
+      border-radius: var(--radius-md);
+      overflow: hidden;
+    }
+    .validation-summary.valid { border: 1px solid var(--success); background: var(--success-light); }
+    .validation-summary.invalid { border: 1px solid var(--danger); background: var(--danger-light); }
+    .validation-summary-header {
+      padding: 10px 14px;
+      font-size: 13px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .validation-summary.valid .validation-summary-header { color: var(--success); }
+    .validation-summary.invalid .validation-summary-header { color: var(--danger); }
+    .validation-summary-body {
+      padding: 0 14px 10px;
+      max-height: 200px;
+      overflow-y: auto;
+    }
+    .validation-row {
+      font-size: 12px;
+      color: var(--text-sub);
+      padding: 4px 0;
+      border-bottom: 1px solid rgba(0,0,0,.05);
+      display: flex;
+      gap: 8px;
+      align-items: flex-start;
+    }
+    .validation-row:last-child { border-bottom: none; }
+    .validation-row .row-num {
+      flex-shrink: 0;
+      width: 24px;
+      font-weight: 600;
+      color: var(--danger);
+    }
+    .validation-row .row-errors { flex: 1; }
+    .validation-row .row-errors span {
+      display: inline-block;
+      margin-right: 8px;
+      padding: 1px 6px;
+      background: var(--danger-light);
+      border-radius: 3px;
+      color: var(--danger);
+      font-size: 11px;
+    }
+    .validation-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .validation-badge.ok { background: var(--success-light); color: var(--success); }
+    .validation-badge.err { background: var(--danger-light); color: var(--danger); }
+
+    .coeff-input {
+      background: transparent;
+      cursor: text;
+      outline: none;
+      transition: border-color 0.15s, background 0.15s;
+    }
+    .coeff-input:hover {
+      border-color: var(--primary) !important;
+      background: var(--bg-secondary);
+    }
+    .coeff-input:focus {
+      border-color: var(--primary) !important;
+      background: var(--bg-secondary);
+      box-shadow: 0 0 0 2px var(--primary)15;
+    }
+  </style>
+</head>
+<body data-page="projects">
+  <aside class="app-nav">
+    <div class="nav-brand">
+      <div class="nav-brand-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11H5a2 2 0 0 0-2 2v7h6V11Z"/><path d="M19 11h-6v9h6v-9Z"/><path d="M15 3.5 12 7l-3-3.5L12 1l3 2.5Z"/></svg>
+      </div>
+      <div class="nav-brand-text">HR实施工作台<small>项目进度 · 积分追踪</small></div>
+    </div>
+    <nav class="nav-items">
+      <a href="index.html" data-nav="dashboard">团队看板</a>
+      <a href="members.html" data-nav="members">成员工作台</a>
+      <a href="owner-view.html" data-nav="owner">负责人视图</a>
+      <a href="projects.html" data-nav="projects">项目列表</a>
+      <a href="calculation.html" data-nav="calculation">积分计算</a>
+    </nav>
+    <div class="nav-footer">
+      <div class="nav-footer-avatar">吴</div>
+      <div class="nav-footer-info"><strong>吴丹丹</strong><span>实施主管</span></div>
+    </div>
+  </aside>
+  <main class="app-content">
+    <div class="page-header">
+      <div class="page-header-left">
+        <h1>项目列表</h1>
+        <p>管理所有 HR SaaS 实施项目，跟踪状态与积分</p>
+      </div>
+      <div class="page-header-actions">
+        <button class="btn btn-primary" id="btn-add-project">
+          <span id="icon-add-project"></span>新增项目
+        </button>
+      </div>
+    </div>
+    <div class="page-body">
+      <!-- 统计栏 -->
+      <div class="grid grid-5" id="stat-bar" style="margin-bottom: 20px;">
+        <!-- JS 渲染 -->
+      </div>
+
+      <!-- 筛选栏 -->
+      <div class="filter-bar">
+        <div class="search-wrapper">
+          <span id="icon-search"></span>
+          <input type="text" class="search-input" id="search-input" placeholder="搜索客户名称...">
+        </div>
+        <select class="filter-select" id="filter-status">
+          <option value="">全部阶段</option>
+          <option value="待派单">待派单</option>
+          <option value="实施中">实施中</option>
+          <option value="维护中">维护中</option>
+          <option value="已移交">已移交</option>
+        </select>
+        <select class="filter-select" id="filter-delivered">
+          <option value="">本季度交付/移交</option>
+          <option value="是">是</option>
+          <option value="否">否</option>
+        </select>
+        <select class="filter-select" id="filter-owner">
+          <option value="">全部负责人</option>
+        </select>
+        <select class="filter-select" id="filter-sort">
+          <option value="id">按项目ID</option>
+          <option value="deadline">按截止日期</option>
+          <option value="points">按积分</option>
+          <option value="coefficient">按完成系数</option>
+        </select>
+      </div>
+
+      <!-- 表格 -->
+      <div class="card">
+        <div class="card-body" style="padding: 0;">
+          <div class="table-wrap">
+            <table class="data-table" id="projects-table">
+              <thead>
+                <tr>
+                  <th>客户名称</th>
+                  <th>组别</th>
+                  <th>项目负责人</th>
+                  <th>首次派单日</th>
+                  <th>标准时效到期日</th>
+                  <th>当前阶段</th>
+                  <th class="col-center">模块实施积分</th>
+                  <th class="col-center">预计完成积分</th>
+                  <th class="col-center">预计完成系数</th>
+                  <th class="col-center">本季度交付/移交</th>
+                  <th>实施结束时间</th>
+                  <th class="col-center">操作</th>
+                </tr>
+              </thead>
+              <tbody id="projects-tbody">
+                <!-- JS 渲染 -->
+              </tbody>
+            </table>
+          </div>
+          <div class="pagination" id="pagination">
+            <!-- JS 渲染 -->
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- 详情模态框 -->
+  <div class="modal-overlay" id="detail-modal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 id="detail-title">项目详情</h3>
+        <button class="modal-close" id="detail-close" aria-label="关闭"></button>
+      </div>
+      <div class="modal-body" id="detail-body">
+        <!-- JS 渲染 -->
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-primary btn-sm" id="detail-edit-btn">
+          <span id="icon-detail-edit"></span>编辑状态
+        </button>
+        <button class="btn btn-ghost btn-sm" id="detail-close-btn">关闭</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 状态编辑模态框 -->
+  <div class="modal-overlay" id="status-modal">
+    <div class="modal" style="max-width: 480px;">
+      <div class="modal-header">
+        <h3>编辑项目状态</h3>
+        <button class="modal-close" id="status-close" aria-label="关闭"></button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size: 13px; color: var(--text-sub); margin-bottom: 16px;" id="status-project-name">—</p>
+        <label class="form-label">新状态</label>
+        <select class="status-select-full" id="status-select">
+          <option value="待派单">待派单</option>
+          <option value="实施中">实施中</option>
+          <option value="维护中">维护中</option>
+          <option value="已移交">已移交</option>
+        </select>
+        <label class="form-label" style="margin-top: 16px;">备注说明</label>
+        <textarea class="status-textarea" id="status-remark" placeholder="请输入状态变更说明（可选）..."></textarea>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-primary btn-sm" id="status-save-btn">保存</button>
+        <button class="btn btn-ghost btn-sm" id="status-cancel-btn">取消</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 新增项目模态框 -->
+  <div class="modal-overlay" id="add-modal">
+    <div class="modal" style="max-width: 720px;">
+      <div class="modal-header">
+        <h3>新增项目</h3>
+        <button class="modal-close" id="add-close" aria-label="关闭"></button>
+      </div>
+      <div class="modal-body" style="padding: 0;">
+        <!-- Tab 导航 -->
+        <div class="add-tabs">
+          <button class="add-tab active" data-tab="manual">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+            单独录入
+          </button>
+          <button class="add-tab" data-tab="file">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>
+            文件导入
+          </button>
+          <button class="add-tab" data-tab="dingtalk">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>
+            钉钉表格导入
+          </button>
+        </div>
+
+        <!-- Tab 1: 单独录入 -->
+        <div class="add-tab-panel active" id="tab-manual">
+          <div class="add-form">
+            <div class="form-row">
+              <div class="form-group" id="fg-client">
+                <label class="form-label">客户名称 <span class="req">*</span></label>
+                <input type="text" class="form-input" id="m-client" placeholder="如 字节跳动" />
+                <div class="field-error" id="err-client"></div>
+              </div>
+              <div class="form-group" id="fg-group">
+                <label class="form-label">组别</label>
+                <select class="form-input" id="m-group">
+                  <option value="上海组">上海组</option>
+                  <option value="深圳组">深圳组</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group" id="fg-owner">
+                <label class="form-label">项目负责人 <span class="req">*</span></label>
+                <select class="form-input" id="m-owner"></select>
+                <div class="field-error" id="err-owner"></div>
+              </div>
+              <div class="form-group" id="fg-status">
+                <label class="form-label">当前阶段</label>
+                <select class="form-input" id="m-status">
+                  <option value="待派单">待派单</option>
+                  <option value="实施中" selected>实施中</option>
+                  <option value="维护中">维护中</option>
+                  <option value="已移交">已移交</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group" id="fg-start">
+                <label class="form-label">首次派单日 <span class="req">*</span></label>
+                <input type="date" class="form-input" id="m-start" />
+                <div class="field-error" id="err-start"></div>
+              </div>
+              <div class="form-group" id="fg-end">
+                <label class="form-label">标准时效到期日 <span class="req">*</span></label>
+                <input type="date" class="form-input" id="m-end" />
+                <div class="field-error" id="err-end"></div>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group" id="fg-points">
+                <label class="form-label">模块实施积分</label>
+                <input type="number" class="form-input" id="m-points" placeholder="如 0.75" min="0" step="0.01" />
+                <div class="field-error" id="err-points"></div>
+              </div>
+              <div class="form-group" id="fg-coeff">
+                <label class="form-label">预计完成系数</label>
+                <input type="number" class="form-input" id="m-coeff" placeholder="如 1.00" min="0" step="0.01" value="1.00" />
+              </div>
+            </div>
+            <div class="form-group" id="fg-delivered">
+              <label class="form-label">是否本季度交付/移交</label>
+              <select class="form-input" id="m-delivered">
+                <option value="是" selected>是</option>
+                <option value="否">否</option>
+              </select>
+            </div>
+            <div class="form-group" style="margin-top: 4px;" id="fg-actual">
+              <label class="form-label">实施结束时间</label>
+              <input type="date" class="form-input" id="m-actual" />
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab 2: 文件导入 -->
+        <div class="add-tab-panel" id="tab-file">
+          <div class="import-step" id="file-step1">
+            <div class="upload-zone" id="upload-zone">
+              <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>
+              <p>拖拽文件到此处，或 <span class="upload-link">点击选择</span></p>
+              <p class="upload-hint">支持 CSV、Excel (.xlsx) 格式</p>
+              <input type="file" id="file-input" accept=".csv,.xlsx,.xls" style="display:none" />
+            </div>
+            <div class="import-tips">
+              <p>文件需包含以下列（列名可不同，导入时可手动映射）：</p>
+              <div class="field-chips">
+                <span>项目名称</span><span>客户</span><span>负责人</span><span>状态</span><span>计划积分</span><span>开始日期</span><span>预计结束</span><span>本季度交付/移交</span><span>优先级</span>
+              </div>
+            </div>
+          </div>
+          <div class="import-step" id="file-step2" style="display:none;">
+            <div class="mapping-section">
+              <h4>列映射 — 将文件列对应到项目字段</h4>
+              <div id="mapping-rows"></div>
+            </div>
+            <div class="preview-section">
+              <h4>预览（前 5 条）</h4>
+              <div class="table-wrap">
+                <table class="data-table" id="preview-table">
+                  <thead id="preview-thead"></thead>
+                  <tbody id="preview-tbody"></tbody>
+                </table>
+              </div>
+            </div>
+            <div class="validation-summary" id="file-validation" style="display:none;"></div>
+          </div>
+        </div>
+
+        <!-- Tab 3: 钉钉AI表格直连 -->
+        <div class="add-tab-panel" id="tab-dingtalk">
+          <!-- 步骤 1: 搜索/选择 AI 表格 -->
+          <div class="dingtalk-section" id="dt-step1">
+            <div class="dingtalk-guide">
+              <h4>从钉钉 AI 表格直接导入</h4>
+              <p style="font-size: 13px; color: var(--text-sub); margin-top: 8px; line-height: 1.7;">
+                通过 dws CLI 直接读取你已授权的钉钉 AI 表格，无需 AppKey/AppSecret。<br>
+                前置条件：终端执行 <code>node dingtalk-bridge.js</code> 启动代理服务
+              </p>
+            </div>
+
+            <!-- 搜索 Base -->
+            <div class="form-row" style="margin-top: 16px;">
+              <div class="form-group" style="flex: 2;">
+                <label class="form-label">搜索 AI 表格</label>
+                <input type="text" class="form-input" id="dt-search-keyword" placeholder="输入表格名称关键词，如 项目" />
+              </div>
+              <div class="form-group" style="flex: 1; display: flex; align-items: flex-end;">
+                <button class="btn btn-ghost btn-sm" id="dt-search-btn" style="width: 100%;">
+                  <span id="icon-dt-search"></span>搜索表格
+                </button>
+              </div>
+            </div>
+
+            <!-- 搜索结果列表 -->
+            <div id="dt-search-results" style="margin-top: 12px;"></div>
+
+            <!-- 手动输入 baseId -->
+            <div style="margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border);">
+              <p style="font-size: 12px; color: var(--text-sub); margin-bottom: 8px;">或手动输入 baseId：</p>
+              <div class="form-row">
+                <div class="form-group" style="flex: 2;">
+                  <label class="form-label">AI 表格 ID (baseId)</label>
+                  <input type="text" class="form-input" id="dt-base-id" placeholder="如 NZQYprEoWoe27vwPHBP1j2k9J1waOeDk" />
+                </div>
+                <div class="form-group" style="flex: 1; display: flex; align-items: flex-end;">
+                  <button class="btn btn-primary btn-sm" id="dt-load-tables-btn" style="width: 100%;">
+                    <span id="icon-dt-load"></span>加载数据表
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 步骤 2: 选择数据表 -->
+          <div class="import-step" id="dt-step2" style="display:none;">
+            <div class="mapping-section">
+              <h4>选择数据表</h4>
+              <select class="form-input" id="dt-sheet-select" style="margin-bottom: 16px;"></select>
+              <button class="btn btn-primary btn-sm" id="dt-load-records-btn">
+                <span id="icon-dt-records"></span>读取记录
+              </button>
+              <button class="btn btn-ghost btn-sm" id="dt-back-btn" style="margin-left: 8px;">返回</button>
+            </div>
+            <div id="dt-fields-info" style="margin-top: 16px;"></div>
+          </div>
+
+          <!-- 步骤 3: 列映射 + 预览 -->
+          <div class="import-step" id="dt-step3" style="display:none;">
+            <div class="mapping-section">
+              <h4>列映射 — 将钉钉字段对应到项目字段</h4>
+              <div id="dt-mapping-rows"></div>
+            </div>
+            <div class="preview-section">
+              <h4>预览（前 5 条）</h4>
+              <div class="table-wrap">
+                <table class="data-table" id="dt-preview-table">
+                  <thead id="dt-preview-thead"></thead>
+                  <tbody id="dt-preview-tbody"></tbody>
+                </table>
+              </div>
+            </div>
+            <div class="validation-summary" id="dt-validation" style="display:none;"></div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-primary btn-sm" id="add-confirm-btn">确认新增</button>
+        <button class="btn btn-ghost btn-sm" id="add-cancel-btn">取消</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="supabase-config.js"></script>
+  <script src="api.js?v=22"></script>
+  <script src="components.js?v=7"></script>
+  <script>
+    // ========== 状态 ==========
+    let allProjects = [];
+    let filteredProjects = [];
+    let currentPage = 1;
+    const pageSize = 10;
+    let currentDetailProject = null;
+    let currentEditProject = null;
+    let filters = { search: '', status: '', ownerId: '', delivered: '' };
+    let sortBy = 'id';
+
+    // ========== 状态 → tag 类映射 ==========
+    const STATUS_TAG_MAP = {
+      '已移交': 'tag-success',
+      '实施中': 'tag-info',
+      '维护中': 'tag-warning',
+      '待派单': 'tag-neutral',
+    };
+
+    const STATUS_CONFIG = {
+      '待派单': { label: '待派单', icon: 'clock', color: 'neutral' },
+      '实施中': { label: '实施中', icon: 'play-circle', color: 'info' },
+      '维护中': { label: '维护中', icon: 'activity', color: 'warning' },
+      '已移交': { label: '已移交', icon: 'check-circle', color: 'success' },
+    };
+
+    const PRIORITY_TAG_MAP = {
+      'high': 'tag-danger',
+      'medium': 'tag-warning',
+      'low': 'tag-success',
+    };
+
+    // ========== 渲染统计栏 ==========
+    function renderStatBar() {
+      const counts = { total: allProjects.length, '待派单': 0, '实施中': 0, '维护中': 0, '已移交': 0 };
+      allProjects.forEach(p => { counts[p.status] = (counts[p.status] || 0) + 1; });
+
+      const cards = [
+        { label: '总项目数', value: counts.total, icon: 'list-checks', cls: '' },
+        { label: '待派单', value: counts['待派单'] || 0, icon: 'clock', cls: 'neutral' },
+        { label: '实施中', value: counts['实施中'] || 0, icon: 'play-circle', cls: 'info' },
+        { label: '维护中', value: counts['维护中'] || 0, icon: 'activity', cls: 'warning' },
+        { label: '已移交', value: counts['已移交'] || 0, icon: 'check-circle', cls: 'success' },
+      ];
+
+      document.getElementById('stat-bar').innerHTML = cards.map(c => `
+        <div class="stat-card ${c.cls} fade-in">
+          <div class="stat-card-icon">${icon(c.icon, 20)}</div>
+          <div>
+            <div class="stat-card-value">${c.value}</div>
+            <div class="stat-card-label">${c.label}</div>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    // ========== 渲染负责人筛选 ==========
+    function renderOwnerFilter() {
+      const select = document.getElementById('filter-owner');
+      Cache.members.forEach(m => {
+        const opt = document.createElement('option');
+        opt.value = m.id;
+        opt.textContent = m.name;
+        select.appendChild(opt);
+      });
+    }
+
+    // ========== 渲染表格 ==========
+    function renderTable() {
+      const tbody = document.getElementById('projects-tbody');
+      const start = (currentPage - 1) * pageSize;
+      const pageItems = filteredProjects.slice(start, start + pageSize);
+
+      if (pageItems.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="12" style="text-align:center; padding:40px; color:var(--text-muted);">暂无匹配的项目数据</td></tr>`;
+        renderPagination();
+        return;
+      }
+
+      tbody.innerHTML = pageItems.map(p => {
+        const sc = STATUS_CONFIG[p.status] || { label: p.status, icon: 'clock' };
+        const member = getMember(p.ownerId);
+        const statusTag = `<span class="tag ${STATUS_TAG_MAP[p.status]}">${icon(sc.icon, 12)}${sc.label}</span>`;
+        const coeffVal = (p.coefficient ?? 1.0).toFixed(2);
+        const coeffNum = parseFloat(coeffVal);
+        const coeffClass = coeffNum >= 1 ? 'success' : (coeffNum < 0.3 ? 'danger' : (coeffNum < 0.6 ? 'warning' : ''));
+
+        return `
+          <tr>
+            <td>${p.client}</td>
+            <td>${p.group || '—'}</td>
+            <td>
+              <a class="owner-link" href="owner-view.html?ownerId=${p.ownerId}">
+                <span class="avatar avatar-sm" style="background:${member.color}20; color:${member.color};">${member.initials}</span>
+                ${member.name}
+              </a>
+            </td>
+            <td style="font-size: 13px; color: var(--text-sub);">${formatDate(p.startDate)}</td>
+            <td style="font-size: 13px; color: var(--text-sub);">${formatDate(p.expectedEndDate)}</td>
+            <td>${statusTag}</td>
+            <td class="col-center" style="font-weight: 700;">${p.plannedPoints}</td>
+            <td class="col-center proj-points" data-project-id="${p.id}" style="font-weight: 700; color: var(--primary);">${projectProjectedPoints(p)}</td>
+            <td class="col-center">
+              <input type="text"
+                     class="coeff-input"
+                     data-project-id="${p.id}"
+                     value="${coeffVal}"
+                     style="width: 48px; text-align: center; font-weight: 700; border: 1px solid var(--border); border-radius: 4px; padding: 2px 4px; font-size: 13px; color: var(--${coeffClass === 'success' ? 'success' : (coeffClass === 'danger' ? 'danger' : (coeffClass === 'warning' ? 'warning' : 'text'))});"
+                     title="点击编辑预计完成系数" />
+            </td>
+            <td class="col-center">
+              <select class="deliver-select" data-project-id="${p.id}"
+                      style="width: 52px; text-align: center; font-size: 13px; border: 1px solid var(--border); border-radius: 4px; padding: 2px 4px; color: var(--${p.deliveredThisQuarter !== '否' ? 'success' : 'text-sub'});"
+                      title="本季度是否交付/移交">
+                <option value="是" ${p.deliveredThisQuarter !== '否' ? 'selected' : ''}>是</option>
+                <option value="否" ${p.deliveredThisQuarter === '否' ? 'selected' : ''}>否</option>
+              </select>
+            </td>
+            <td style="font-size: 13px; color: var(--text-sub);">${p.actualEndDate ? formatDate(p.actualEndDate) : '<span style="color: var(--text-muted);">—</span>'}</td>
+            <td class="col-center">
+              <div class="action-btns">
+                <button class="btn btn-ghost btn-sm btn-detail" data-project-id="${p.id}" title="详情">${icon('eye', 14)}详情</button>
+                <button class="btn btn-ghost btn-sm btn-edit-status" data-project-id="${p.id}" title="编辑状态">${icon('edit', 14)}</button>
+                <button class="btn btn-ghost btn-sm btn-delete" data-project-id="${p.id}" title="删除项目" style="color: var(--danger);">${icon('trash-2', 14)}</button>
+              </div>
+            </td>
+          </tr>
+        `;
+      }).join('');
+
+      // 绑定系数编辑事件
+      tbody.querySelectorAll('.coeff-input').forEach(input => {
+        input.addEventListener('focus', function() { this.select(); });
+        input.addEventListener('blur', async function() {
+          const projectId = this.dataset.projectId;
+          const val = parseFloat(this.value);
+          if (isNaN(val) || val < 0) {
+            alert('请输入有效的系数（≥0的数字）');
+            const proj = allProjects.find(p => p.id === projectId);
+            if (proj) this.value = (proj.coefficient ?? 1.0).toFixed(2);
+            return;
+          }
+          const formatted = val.toFixed(2);
+          this.value = formatted;
+          const proj = allProjects.find(p => p.id === projectId);
+          if (proj && (proj.coefficient ?? 1.0).toFixed(2) !== formatted) {
+            proj.coefficient = val;
+            const coeffNum = val;
+            const coeffClass = coeffNum >= 1 ? 'success' : (coeffNum < 0.3 ? 'danger' : (coeffNum < 0.6 ? 'warning' : ''));
+            const colorVar = coeffClass === 'success' ? 'success' : (coeffClass === 'danger' ? 'danger' : (coeffClass === 'warning' ? 'warning' : 'text'));
+            this.style.color = `var(--${colorVar})`;
+            // 系数变化后同步刷新该行的「预计完成积分」
+            const projCell = tbody.querySelector(`.proj-points[data-project-id="${projectId}"]`);
+            if (projCell) projCell.textContent = projectProjectedPoints(proj);
+            try {
+              await API.updateProject(projectId, { coefficient: val });
+            } catch (e) {
+              console.error('Failed to save coefficient:', e);
+            }
+          }
+        });
+        input.addEventListener('keydown', function(e) {
+          if (e.key === 'Enter') this.blur();
+          if (e.key === 'Escape') {
+            const proj = allProjects.find(p => p.id === this.dataset.projectId);
+            if (proj) this.value = (proj.coefficient ?? 1.0).toFixed(2);
+            this.blur();
+          }
+        });
+      });
+
+      // 绑定本季度交付/移交编辑事件
+      tbody.querySelectorAll('.deliver-select').forEach(sel => {
+        sel.addEventListener('change', async function() {
+          const projectId = this.dataset.projectId;
+          const val = this.value;
+          const proj = allProjects.find(p => p.id === projectId);
+          try {
+            await API.updateProject(projectId, { deliveredThisQuarter: val });
+            if (proj) proj.deliveredThisQuarter = val;
+            this.style.color = val === '是' ? 'var(--success)' : 'var(--text-sub)';
+            // 该字段影响「预计完成积分」：非本季度交付/移交的项目不计入预计
+            const projCell = tbody.querySelector(`.proj-points[data-project-id="${projectId}"]`);
+            if (projCell && proj) projCell.textContent = projectProjectedPoints(proj);
+            showToast('已更新本季度交付/移交', 'success');
+          } catch (e) {
+            console.error('Failed to save deliveredThisQuarter:', e);
+            showToast('更新失败，请重试', 'warning');
+            if (proj) this.value = proj.deliveredThisQuarter === '是' ? '是' : '否';
+          }
+        });
+      });
+
+      // 绑定事件
+      tbody.querySelectorAll('.project-name-link, .btn-detail').forEach(el => {
+        el.addEventListener('click', () => openDetailModal(el.dataset.projectId));
+      });
+      tbody.querySelectorAll('.btn-edit-status').forEach(el => {
+        el.addEventListener('click', () => openStatusModal(el.dataset.projectId));
+      });
+      tbody.querySelectorAll('.btn-delete').forEach(el => {
+        el.addEventListener('click', () => deleteProject(el.dataset.projectId));
+      });
+
+      renderPagination();
+    }
+
+    // ========== 渲染分页 ==========
+    function renderPagination() {
+      const container = document.getElementById('pagination');
+      const totalPages = Math.ceil(filteredProjects.length / pageSize);
+
+      if (totalPages <= 1) {
+        container.innerHTML = `<span style="font-size: 13px; color: var(--text-muted);">共 ${filteredProjects.length} 条</span>`;
+        return;
+      }
+
+      let html = `<button id="page-prev" ${currentPage === 1 ? 'disabled' : ''}>上一页</button>`;
+      for (let i = 1; i <= totalPages; i++) {
+        html += `<button class="page-btn ${i === currentPage ? 'active' : ''}" data-page="${i}">${i}</button>`;
+      }
+      html += `<button id="page-next" ${currentPage === totalPages ? 'disabled' : ''}>下一页</button>`;
+      html += `<span style="font-size: 13px; color: var(--text-muted); margin-left: 8px;">共 ${filteredProjects.length} 条</span>`;
+      container.innerHTML = html;
+
+      container.querySelectorAll('.page-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          currentPage = parseInt(btn.dataset.page);
+          renderTable();
+        });
+      });
+      const prev = document.getElementById('page-prev');
+      const next = document.getElementById('page-next');
+      if (prev) prev.addEventListener('click', () => { if (currentPage > 1) { currentPage--; renderTable(); } });
+      if (next) next.addEventListener('click', () => { if (currentPage < totalPages) { currentPage++; renderTable(); } });
+    }
+
+    // ========== 筛选与排序 ==========
+    function applyFilters() {
+      filteredProjects = allProjects.filter(p => {
+        if (filters.search) {
+          const q = filters.search.toLowerCase();
+          if (!p.client.toLowerCase().includes(q)) return false;
+        }
+        if (filters.status && p.status !== filters.status) return false;
+        if (filters.ownerId && p.ownerId !== parseInt(filters.ownerId)) return false;
+        if (filters.delivered) {
+          // 空值视为「是」（与全站口径一致：仅显式「否」才算否）
+          const delivered = p.deliveredThisQuarter === '否' ? '否' : '是';
+          if (delivered !== filters.delivered) return false;
+        }
+        return true;
+      });
+
+      // 排序
+      switch (sortBy) {
+        case 'points':
+          filteredProjects.sort((a, b) => b.plannedPoints - a.plannedPoints);
+          break;
+        case 'deadline':
+          filteredProjects.sort((a, b) => new Date(a.expectedEndDate) - new Date(b.expectedEndDate));
+          break;
+        case 'coefficient':
+          filteredProjects.sort((a, b) => {
+            const ca = a.plannedPoints > 0 ? a.completedPoints / a.plannedPoints : 0;
+            const cb = b.plannedPoints > 0 ? b.completedPoints / b.plannedPoints : 0;
+            return cb - ca;
+          });
+          break;
+        default:
+          filteredProjects.sort((a, b) => a.id.localeCompare(b.id));
+      }
+
+      currentPage = 1;
+      renderTable();
+    }
+
+    // ========== Loading Skeleton ==========
+    function showSkeleton() {
+      const tbody = document.getElementById('projects-tbody');
+      let html = '';
+      for (let i = 0; i < 8; i++) {
+        html += `<tr class="loading-row">
+          <td><span class="loading-skeleton" style="width: 180px;"></span></td>
+          <td><span class="loading-skeleton" style="width: 60px;"></span></td>
+          <td><span class="loading-skeleton" style="width: 70px;"></span></td>
+          <td><span class="loading-skeleton" style="width: 80px;"></span></td>
+          <td><span class="loading-skeleton" style="width: 80px;"></span></td>
+          <td><span class="loading-skeleton" style="width: 50px;"></span></td>
+          <td class="col-center"><span class="loading-skeleton" style="width: 30px;"></span></td>
+          <td class="col-center"><span class="loading-skeleton" style="width: 30px;"></span></td>
+          <td><span class="loading-skeleton" style="width: 80px;"></span></td>
+          <td class="col-center"><span class="loading-skeleton" style="width: 60px;"></span></td>
+        </tr>`;
+      }
+      tbody.innerHTML = html;
+    }
+
+    // ========== 详情模态框 ==========
+    function openDetailModal(projectId) {
+      const project = allProjects.find(p => p.id === projectId);
+      if (!project) return;
+      currentDetailProject = project;
+
+      const sc = STATUS_CONFIG[project.status] || { label: project.status, icon: 'clock' };
+      const member = getMember(project.ownerId);
+      const remainingPoints = project.plannedPoints - project.completedPoints;
+      const completionRate = calcCompletionRate(project.completedPoints, project.plannedPoints);
+      const progressBarClass = project.progress >= 100 ? 'success' : (project.progress < 30 ? 'danger' : (project.progress < 60 ? 'warning' : ''));
+
+      document.getElementById('detail-title').textContent = project.name;
+      document.getElementById('detail-body').innerHTML = `
+        <div class="modal-grid">
+          <div>
+            <div class="modal-section-title">基本信息</div>
+            <div class="info-row"><span class="info-row-label">项目ID</span><span class="info-row-value" style="font-family: var(--font-mono);">${project.id}</span></div>
+            <div class="info-row"><span class="info-row-label">客户</span><span class="info-row-value">${project.client}</span></div>
+            <div class="info-row"><span class="info-row-label">负责人</span><span class="info-row-value">${member.name}</span></div>
+            <div class="info-row"><span class="info-row-label">当前阶段</span><span class="info-row-value"><span class="tag ${STATUS_TAG_MAP[project.status] || 'tag-neutral'}">${icon(sc.icon, 12)}${sc.label}</span></span></div>
+            <div class="info-row"><span class="info-row-label">首次派单日</span><span class="info-row-value">${formatDate(project.startDate)}</span></div>
+            <div class="info-row"><span class="info-row-label">标准时效到期日</span><span class="info-row-value">${formatDate(project.expectedEndDate)}</span></div>
+            ${project.actualEndDate ? `<div class="info-row"><span class="info-row-label">实施结束时间</span><span class="info-row-value" style="color: var(--success);">${formatDate(project.actualEndDate)}</span></div>` : ''}
+          </div>
+          <div>
+            <div class="modal-section-title">积分与进度</div>
+            <div class="info-row"><span class="info-row-label">模块实施积分</span><span class="info-row-value">${project.plannedPoints} 分</span></div>
+            <div class="info-row"><span class="info-row-label">已完成积分</span><span class="info-row-value" style="color: var(--success);">${project.completedPoints} 分</span></div>
+            <div class="info-row"><span class="info-row-label">剩余积分</span><span class="info-row-value" style="color: var(--text-sub);">${remainingPoints} 分</span></div>
+            <div class="info-row"><span class="info-row-label">预计完成系数</span><span class="info-row-value" style="font-weight: 700;">${(project.coefficient ?? 1.0).toFixed(2)}</span></div>
+            <div class="info-row"><span class="info-row-label">本季度交付/移交</span><span class="info-row-value" style="font-weight: 700; color: var(--${project.deliveredThisQuarter === '否' ? 'text-sub' : 'success'});">${project.deliveredThisQuarter === '否' ? '否' : '是'}</span></div>
+            <div style="margin-top: 16px;">
+              <div style="font-size: 13px; color: var(--text-sub); margin-bottom: 6px;">项目进度</div>
+              <div class="progress-cell" style="min-width: auto;">
+                <div class="progress-bar"><div class="progress-bar-fill ${progressBarClass}" style="width: ${project.progress}%;"></div></div>
+                <span>${project.progress}%</span>
+              </div>
+            </div>
+            <div style="margin-top: 20px; text-align: center;">
+              <div style="font-size: 13px; color: var(--text-sub); margin-bottom: 4px;">完成率</div>
+              <div class="completion-rate-big ${project.progress >= 100 ? 'success' : ''}">${completionRate}%</div>
+            </div>
+          </div>
+        </div>
+      `;
+
+      document.getElementById('detail-modal').classList.add('show');
+    }
+
+    function closeDetailModal() {
+      document.getElementById('detail-modal').classList.remove('show');
+      currentDetailProject = null;
+    }
+
+    // ========== 状态编辑模态框 ==========
+    function openStatusModal(projectId) {
+      const project = allProjects.find(p => p.id === projectId);
+      if (!project) return;
+      currentEditProject = project;
+
+      document.getElementById('status-project-name').textContent = `${project.id} · ${project.name}`;
+      document.getElementById('status-select').value = project.status;
+      document.getElementById('status-remark').value = '';
+
+      // 如果从详情模态框打开，先关闭详情
+      if (document.getElementById('detail-modal').classList.contains('show')) {
+        closeDetailModal();
+      }
+
+      document.getElementById('status-modal').classList.add('show');
+    }
+
+    function closeStatusModal() {
+      document.getElementById('status-modal').classList.remove('show');
+      currentEditProject = null;
+    }
+
+    async function saveStatus() {
+      if (!currentEditProject) return;
+      const newStatus = document.getElementById('status-select').value;
+      const oldStatus = currentEditProject.status;
+
+      if (newStatus === oldStatus) {
+        showToast('状态未变更', 'warning');
+        return;
+      }
+
+      // 如果状态变为已完成，更新进度和积分
+      if (newStatus === 'completed') {
+        currentEditProject.progress = 100;
+        currentEditProject.completedPoints = currentEditProject.plannedPoints;
+        currentEditProject.actualEndDate = new Date().toISOString().split('T')[0];
+      }
+      // 如果从已完成变为其他状态，恢复
+      if (oldStatus === 'completed' && newStatus !== 'completed') {
+        delete currentEditProject.actualEndDate;
+      }
+
+      try {
+        await API.updateProjectStatus(currentEditProject.id, newStatus);
+        currentEditProject.status = newStatus;
+        showToast('状态已更新', 'success');
+        closeStatusModal();
+        renderStatBar();
+        applyFilters();
+      } catch (e) {
+        showToast('更新失败，请重试', 'warning');
+      }
+    }
+
+    // ========== 新增项目模态框 ==========
+    const PROJECT_FIELDS = [
+      { key: 'client', label: '客户名称', required: true },
+      { key: 'group', label: '组别', required: false, type: 'group', options: ['上海组', '深圳组'] },
+      { key: 'ownerId', label: '项目负责人', required: true, type: 'member' },
+      { key: 'startDate', label: '首次派单日', required: true, type: 'date' },
+      { key: 'expectedEndDate', label: '标准时效到期日', required: true, type: 'date' },
+      { key: 'status', label: '当前阶段', required: false, type: 'status', options: ['待派单', '实施中', '维护中', '已移交'] },
+      { key: 'plannedPoints', label: '模块实施积分', required: false, type: 'number' },
+      { key: 'coefficient', label: '预计完成系数', required: false, type: 'number' },
+      { key: 'deliveredThisQuarter', label: '本季度交付/移交', required: false, type: 'delivered' },
+      { key: 'actualEndDate', label: '实施结束时间', required: false, type: 'date' },
+    ];
+
+    const FIELD_ALIASES = {
+      'client': ['客户名称', '客户', 'client', '公司', '企业'],
+      'group': ['组别', '组', 'group', '团队', '分组'],
+      'ownerId': ['项目负责人', '负责人', '负责人姓名', 'owner', '负责人id', '实施人', 'ownerid'],
+      'startDate': ['首次派单日', '派单日', '开始日期', '开始时间', 'startdate', '启动日期', '开工日期'],
+      'expectedEndDate': ['标准时效到期日', '标准时效', '预计完成日期', '预计结束日期', '预计结束', 'expectedenddate', '截止日期', '结束日期', '预计完成'],
+      'status': ['当前阶段', '状态', '项目状态', 'status', '当前状态'],
+      'plannedPoints': ['模块实施积分', '计划积分', '计划分', 'plannedpoints', '目标积分', '总积分'],
+      'coefficient': ['预计完成系数', '完成系数', 'coefficient', '系数'],
+      'deliveredThisQuarter': ['本季度交付/移交', '是否本季度交付/移交', '本季度交付', '本季度移交', '交付/移交', 'deliveredthisquarter', 'delivered'],
+      'actualEndDate': ['实施结束时间', '实施结束', '实际完成时间', '实际完成', '实际结束日期', 'actualenddate', '实际完成日期'],
+    };
+
+    let importData = { headers: [], rows: [], mapping: {} };
+    let dtImportData = { headers: [], rows: [], mapping: {} };
+
+    function openAddModal() {
+      const ownerSelect = document.getElementById('m-owner');
+      ownerSelect.innerHTML = '<option value="">请选择...</option>' +
+        Cache.members.map(m => `<option value="${m.id}">${m.name} (${m.role})</option>`).join('');
+      const today = new Date().toISOString().slice(0, 10);
+      document.getElementById('m-start').value = today;
+      document.getElementById('add-modal').classList.add('show');
+    }
+
+    function closeAddModal() {
+      document.getElementById('add-modal').classList.remove('show');
+      resetAddModal();
+    }
+
+    function resetAddModal() {
+      clearAllFieldErrors();
+      document.querySelectorAll('.add-tab').forEach((t, i) => {
+        t.classList.toggle('active', i === 0);
+      });
+      document.querySelectorAll('.add-tab-panel').forEach((p, i) => {
+        p.classList.toggle('active', i === 0);
+      });
+      document.getElementById('file-step1').style.display = '';
+      document.getElementById('file-step2').style.display = 'none';
+      document.getElementById('dt-step1').style.display = '';
+      document.getElementById('dt-step2').style.display = 'none';
+      document.getElementById('dt-step3').style.display = 'none';
+      document.getElementById('file-input').value = '';
+      document.getElementById('file-validation').style.display = 'none';
+      document.getElementById('dt-validation').style.display = 'none';
+      document.getElementById('dt-fields-info').innerHTML = '';
+      document.getElementById('dt-sheet-select').innerHTML = '';
+      document.getElementById('dt-search-results').innerHTML = '';
+      document.getElementById('dt-search-keyword').value = '';
+      document.getElementById('dt-base-id').value = '';
+      importData = { headers: [], rows: [], mapping: {} };
+      dtImportData = { headers: [], rows: [], mapping: {} };
+      dtSheets = [];
+      dtFields = [];
+    }
+
+    function switchTab(tabName) {
+      document.querySelectorAll('.add-tab').forEach(t => {
+        t.classList.toggle('active', t.dataset.tab === tabName);
+      });
+      document.querySelectorAll('.add-tab-panel').forEach(p => {
+        p.classList.toggle('active', p.id === `tab-${tabName}`);
+      });
+    }
+
+    // --- 单独录入 ---
+    const ERROR_ICON = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg>';
+
+    function showFieldError(fieldId, message) {
+      const errEl = document.getElementById(`err-${fieldId}`);
+      const groupEl = document.getElementById(`fg-${fieldId}`);
+      if (errEl) {
+        errEl.innerHTML = `${ERROR_ICON}<span>${message}</span>`;
+        errEl.classList.add('show');
+      }
+      if (groupEl) groupEl.classList.add('has-error');
+    }
+
+    function clearFieldError(fieldId) {
+      const errEl = document.getElementById(`err-${fieldId}`);
+      const groupEl = document.getElementById(`fg-${fieldId}`);
+      if (errEl) errEl.classList.remove('show');
+      if (groupEl) groupEl.classList.remove('has-error');
+    }
+
+    function clearAllFieldErrors() {
+      ['client', 'owner', 'start', 'end', 'points', 'coeff'].forEach(clearFieldError);
+    }
+
+    function validateProject(project, { existingIds = new Set(), batchIds = new Set() } = {}) {
+      const errors = [];
+
+      if (!project.client || project.client.trim() === '') {
+        errors.push('客户名称不能为空');
+      } else if (project.client.trim().length > 50) {
+        errors.push('客户名称不能超过50字');
+      }
+
+      if (!project.ownerId && !project._unmatchedOwner) {
+        errors.push('项目负责人不能为空');
+      } else if (project._unmatchedOwner) {
+        errors.push(`项目负责人「${project._unmatchedOwner}」不在系统成员列表中，请先添加该成员`);
+      } else if (project.ownerId) {
+        const member = Cache.members.find(m => m.id === project.ownerId);
+        if (!member) errors.push(`负责人ID ${project.ownerId} 不存在`);
+      }
+
+      if (!project.startDate) {
+        errors.push('首次派单日不能为空');
+      } else if (!/^\d{4}-\d{2}-\d{2}$/.test(project.startDate)) {
+        errors.push('首次派单日格式应为 YYYY-MM-DD');
+      }
+
+      if (!project.expectedEndDate) {
+        errors.push('标准时效到期日不能为空');
+      } else if (!/^\d{4}-\d{2}-\d{2}$/.test(project.expectedEndDate)) {
+        errors.push('标准时效到期日格式应为 YYYY-MM-DD');
+      } else if (project.startDate && /^\d{4}-\d{2}-\d{2}$/.test(project.startDate) && project.expectedEndDate < project.startDate) {
+        errors.push('标准时效到期日不能早于首次派单日');
+      }
+
+      if (project.status && !['待派单', '实施中', '维护中', '已移交'].includes(project.status)) {
+        errors.push(`当前阶段值 "${project.status}" 无效，可选值：待派单、实施中、维护中、已移交`);
+      }
+
+      if (project.plannedPoints != null && project.plannedPoints !== '') {
+        if (isNaN(project.plannedPoints) || project.plannedPoints < 0) {
+          errors.push('模块实施积分必须为非负数');
+        }
+      }
+
+      if (project.coefficient != null) {
+        if (isNaN(project.coefficient) || project.coefficient < 0) {
+          errors.push('预计完成系数必须 >= 0');
+        }
+      }
+
+      if (project.deliveredThisQuarter != null && !['是', '否'].includes(project.deliveredThisQuarter)) {
+        errors.push(`是否本季度交付/移交值 "${project.deliveredThisQuarter}" 无效，可选值：是、否`);
+      }
+
+      if (project.actualEndDate && !/^\d{4}-\d{2}-\d{2}$/.test(project.actualEndDate)) {
+        errors.push('实施结束时间格式应为 YYYY-MM-DD');
+      }
+
+      return errors;
+    }
+
+    function validateManualForm() {
+      clearAllFieldErrors();
+      const project = {
+        client: document.getElementById('m-client').value.trim(),
+        group: document.getElementById('m-group').value,
+        ownerId: parseInt(document.getElementById('m-owner').value) || 0,
+        status: document.getElementById('m-status').value,
+        startDate: document.getElementById('m-start').value,
+        expectedEndDate: document.getElementById('m-end').value,
+        plannedPoints: parseFloat(document.getElementById('m-points').value) || 0,
+        coefficient: parseFloat(document.getElementById('m-coeff').value) || 1.0,
+        deliveredThisQuarter: document.getElementById('m-delivered').value,
+      };
+
+      const actualEnd = document.getElementById('m-actual').value;
+      if (actualEnd) project.actualEndDate = actualEnd;
+
+      const existingIds = new Set(allProjects.map(p => p.id));
+      const errors = validateProject(project, { existingIds });
+
+      // 去重：客户名称 + 项目负责人 + 首次派单日 相同视为重复项目
+      if (project.client && project.ownerId && project.startDate) {
+        const key = projectKey(project);
+        if (allProjects.some(p => projectKey(p) === key)) {
+          errors.push('客户名称重复：该负责人在同一派单日已存在此项目，请勿重复新增');
+        }
+      }
+
+      const fieldMap = {
+        '客户名称': 'client', '项目负责人': 'owner',
+        '首次派单日': 'start', '标准时效到期日': 'end',
+        '模块实施积分': 'points', '预计完成系数': 'coeff',
+      };
+
+      errors.forEach(err => {
+        for (const [keyword, fieldId] of Object.entries(fieldMap)) {
+          if (err.includes(keyword)) {
+            showFieldError(fieldId, err);
+            return;
+          }
+        }
+      });
+
+      return errors.length === 0;
+    }
+
+    function renderValidationSummary(scope, results) {
+      const container = document.getElementById(scope === 'file' ? 'file-validation' : 'dt-validation');
+      const validCount = results.filter(r => r.errors.length === 0).length;
+      const invalidCount = results.length - validCount;
+
+      if (invalidCount === 0) {
+        container.className = 'validation-summary valid';
+        container.innerHTML = `<div class="validation-summary-header">${icon('check-circle', 16)}校验通过 — ${validCount} 条数据全部有效</div>`;
+      } else {
+        const errorRows = results
+          .map((r, i) => ({ ...r, rowNum: i + 2 }))
+          .filter(r => r.errors.length > 0)
+          .map(r => `<div class="validation-row">
+            <span class="row-num">行${r.rowNum}</span>
+            <div class="row-errors">${r.errors.map(e => `<span>${e}</span>`).join('')}</div>
+          </div>`).join('');
+
+        container.className = 'validation-summary invalid';
+        container.innerHTML = `
+          <div class="validation-summary-header">${icon('alert-triangle', 16)}校验失败 — ${validCount} 条有效, ${invalidCount} 条有错误</div>
+          <div class="validation-summary-body">${errorRows}</div>
+        `;
+      }
+      container.style.display = '';
+    }
+
+    function submitManualForm() {
+      const project = {
+        client: document.getElementById('m-client').value.trim(),
+        group: document.getElementById('m-group').value,
+        ownerId: parseInt(document.getElementById('m-owner').value) || 0,
+        status: document.getElementById('m-status').value,
+        startDate: document.getElementById('m-start').value,
+        expectedEndDate: document.getElementById('m-end').value,
+        plannedPoints: parseFloat(document.getElementById('m-points').value) || 0,
+        coefficient: parseFloat(document.getElementById('m-coeff').value) || 1.0,
+        deliveredThisQuarter: document.getElementById('m-delivered').value,
+      };
+
+      const actualEnd = document.getElementById('m-actual').value;
+      if (actualEnd) project.actualEndDate = actualEnd;
+
+      if (!validateManualForm()) {
+        showToast('请修正表单中的错误', 'warning');
+        const firstError = document.querySelector('.has-error .form-input');
+        if (firstError) firstError.focus();
+        return;
+      }
+
+      if (project.status === 'completed') {
+        project.completedPoints = project.plannedPoints;
+        project.progress = 100;
+        if (!project.actualEndDate) project.actualEndDate = new Date().toISOString().slice(0, 10);
+      }
+
+      API.addProject(project).then(res => {
+        if (res.code === 0) {
+          showToast(`项目「${project.client}」新增成功`);
+          closeAddModal();
+          reloadProjects();
+        } else if (res.code === 2) {
+          showToast('该项目已存在（客户名称+项目负责人+首次派单日重复），未重复新增', 'warning');
+        } else {
+          showToast('新增失败，请重试', 'warning');
+        }
+      });
+    }
+
+    // --- 文件导入 ---
+    function handleFile(file) {
+      const ext = file.name.split('.').pop().toLowerCase();
+      if (ext === 'csv') {
+        Papa.parse(file, {
+          header: true,
+          skipEmptyLines: true,
+          complete: (results) => {
+            if (results.data.length === 0) { showToast('文件为空或格式错误', 'warning'); return; }
+            processImportData(results.meta.fields, results.data, 'file');
+          },
+          error: () => showToast('CSV 解析失败', 'warning'),
+        });
+      } else if (ext === 'xlsx' || ext === 'xls') {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const wb = XLSX.read(e.target.result, { type: 'array' });
+          const ws = wb.Sheets[wb.SheetNames[0]];
+          const json = XLSX.utils.sheet_to_json(ws, { defval: '' });
+          if (json.length === 0) { showToast('文件为空或格式错误', 'warning'); return; }
+          const headers = Object.keys(json[0]);
+          processImportData(headers, json, 'file');
+        };
+        reader.readAsArrayBuffer(file);
+      } else {
+        showToast('不支持的文件格式', 'warning');
+      }
+    }
+
+    // --- 钉钉 AI 表格直连 ---
+    const DT_BRIDGE_URL = 'http://localhost:3456';
+    let dtSheets = [];
+    let dtFields = [];
+
+    async function dtSearchBases() {
+      const keyword = document.getElementById('dt-search-keyword').value.trim();
+      if (!keyword) { showToast('请输入搜索关键词', 'warning'); return; }
+
+      const resultsDiv = document.getElementById('dt-search-results');
+      resultsDiv.innerHTML = '<p style="font-size:13px;color:var(--text-sub);padding:12px;">搜索中...</p>';
+
+      try {
+        const resp = await fetch(`${DT_BRIDGE_URL}/api/dingtalk/bases/search?keyword=${encodeURIComponent(keyword)}`);
+        const data = await resp.json();
+        if (data.error) {
+          resultsDiv.innerHTML = `<p style="font-size:13px;color:var(--danger);padding:12px;">${data.error}</p>`;
+          return;
+        }
+
+        const bases = data.bases || data.data?.bases || [];
+        if (bases.length === 0) {
+          resultsDiv.innerHTML = '<p style="font-size:13px;color:var(--text-sub);padding:12px;">未找到匹配的表格</p>';
+          return;
+        }
+
+        resultsDiv.innerHTML = bases.map(b => `
+          <div class="dt-base-card" data-base-id="${b.baseId}" style="
+            padding: 12px; margin-bottom: 8px; border: 1px solid var(--border);
+            border-radius: var(--radius-md); cursor: pointer; transition: border-color .15s;
+          " onmouseover="this.style.borderColor='var(--primary)'" onmouseout="this.style.borderColor='var(--border)'">
+            <div style="font-weight:600;font-size:14px;">${b.name}</div>
+            <div style="font-size:12px;color:var(--text-sub);margin-top:4px;">${b.baseId}</div>
+          </div>
+        `).join('');
+
+        resultsDiv.querySelectorAll('.dt-base-card').forEach(card => {
+          card.addEventListener('click', () => {
+            document.getElementById('dt-base-id').value = card.dataset.baseId;
+            resultsDiv.innerHTML = '';
+            dtLoadTables();
+          });
+        });
+      } catch (err) {
+        resultsDiv.innerHTML = `<p style="font-size:13px;color:var(--danger);padding:12px;">连接失败：请确认已启动 node dingtalk-bridge.js</p>`;
+      }
+    }
+
+    async function dtLoadTables() {
+      const baseId = document.getElementById('dt-base-id').value.trim();
+      if (!baseId) { showToast('请输入 AI 表格 ID', 'warning'); return; }
+
+      try {
+        showToast('正在加载数据表...');
+        const resp = await fetch(`${DT_BRIDGE_URL}/api/dingtalk/tables?baseId=${encodeURIComponent(baseId)}`);
+        const data = await resp.json();
+        if (data.error) { showToast(data.error, 'warning'); return; }
+
+        dtSheets = data.tables || data.data?.tables || [];
+        if (dtSheets.length === 0) { showToast('未找到数据表', 'warning'); return; }
+
+        const select = document.getElementById('dt-sheet-select');
+        select.innerHTML = dtSheets.map(s =>
+          `<option value="${s.tableId}">${s.name} (${s.tableId})</option>`
+        ).join('');
+
+        document.getElementById('dt-step1').style.display = 'none';
+        document.getElementById('dt-step2').style.display = '';
+        showToast(`加载成功，共 ${dtSheets.length} 个数据表`);
+      } catch (err) {
+        showToast('连接 Bridge 失败，请确认已启动 node dingtalk-bridge.js', 'warning');
+      }
+    }
+
+    async function dtLoadRecords() {
+      const tableId = document.getElementById('dt-sheet-select').value;
+      const baseId = document.getElementById('dt-base-id').value.trim();
+      if (!tableId || !baseId) { showToast('请先选择数据表', 'warning'); return; }
+
+      const params = new URLSearchParams({ baseId, tableId });
+
+      try {
+        showToast('正在读取字段...');
+        const fieldsResp = await fetch(`${DT_BRIDGE_URL}/api/dingtalk/fields?${params}`);
+        const fieldsData = await fieldsResp.json();
+        if (fieldsData.error) { showToast(fieldsData.error, 'warning'); return; }
+
+        dtFields = fieldsData.fields || fieldsData.data?.fields || [];
+        const fieldsInfo = document.getElementById('dt-fields-info');
+        fieldsInfo.innerHTML = `<p style="font-size:12px;color:var(--text-sub);margin-bottom:8px;">共 ${dtFields.length} 个字段:</p>` +
+          dtFields.map(f => `<span class="field-info-chip">${f.name} (${f.type})</span>`).join('');
+
+        showToast('正在读取记录...');
+        const recordsResp = await fetch(`${DT_BRIDGE_URL}/api/dingtalk/records?${params}&all=true`);
+        const recordsData = await recordsResp.json();
+        if (recordsData.error) { showToast(recordsData.error, 'warning'); return; }
+
+        const rawRecords = recordsData.records || recordsData.data?.records || [];
+        if (rawRecords.length === 0) { showToast('该表没有记录', 'warning'); return; }
+
+        const headers = dtFields.map(f => f.name);
+        const rows = rawRecords.map(record => {
+          const row = {};
+          dtFields.forEach(field => {
+            const cellValue = record.cells?.[field.fieldId] || record[field.name] || record.values?.[field.name];
+            if (cellValue == null) { row[field.name] = ''; return; }
+            if (Array.isArray(cellValue)) {
+              row[field.name] = cellValue.map(v => v.text || v.value || v).join(', ');
+            } else if (typeof cellValue === 'object') {
+              row[field.name] = cellValue.text || cellValue.value || '';
+            } else {
+              row[field.name] = String(cellValue);
+            }
+          });
+          return row;
+        });
+
+        processImportData(headers, rows, 'dt');
+        document.getElementById('dt-step2').style.display = 'none';
+        document.getElementById('dt-step3').style.display = '';
+        showToast(`读取成功，共 ${rows.length} 条记录`);
+      } catch (err) {
+        showToast('读取数据失败: ' + err.message, 'warning');
+      }
+    }
+
+    // --- 通用：处理导入数据 + 智能列映射 + 渲染预览 ---
+    function processImportData(headers, rows, scope) {
+      const data = scope === 'file' ? importData : dtImportData;
+      data.headers = headers;
+      data.rows = rows;
+      data.mapping = {};
+
+      PROJECT_FIELDS.forEach(field => {
+        const aliases = FIELD_ALIASES[field.key] || [];
+        let matched = null;
+        for (const h of headers) {
+          const lower = h.toLowerCase().replace(/\s/g, '');
+          if (aliases.some(a => a.toLowerCase().replace(/\s/g, '') === lower)) {
+            matched = h;
+            break;
+          }
+        }
+        data.mapping[field.key] = matched || '';
+      });
+
+      renderMappingUI(scope);
+      renderPreview(scope);
+      validateBatch(scope);
+      const step1 = document.getElementById(scope === 'file' ? 'file-step1' : 'dt-step1');
+      const step2 = document.getElementById(scope === 'file' ? 'file-step2' : 'dt-step2');
+      if (step1) step1.style.display = 'none';
+      if (step2) step2.style.display = '';
+    }
+
+    function renderMappingUI(scope) {
+      const data = scope === 'file' ? importData : dtImportData;
+      const container = document.getElementById(scope === 'file' ? 'mapping-rows' : 'dt-mapping-rows');
+      container.innerHTML = PROJECT_FIELDS.map(field => {
+        const options = '<option value="">-- 不导入 --</option>' +
+          data.headers.map(h => `<option value="${h}" ${data.mapping[field.key] === h ? 'selected' : ''}>${h}</option>`).join('');
+        return `<div class="mapping-row">
+          <label>${field.label}${field.required ? ' *' : ''}</label>
+          <select data-field="${field.key}" data-scope="${scope}">${options}</select>
+        </div>`;
+      }).join('');
+
+      container.querySelectorAll('select').forEach(sel => {
+        sel.addEventListener('change', () => {
+          data.mapping[sel.dataset.field] = sel.value;
+          renderPreview(scope);
+          validateBatch(scope);
+        });
+      });
+    }
+
+    function renderPreview(scope) {
+      const data = scope === 'file' ? importData : dtImportData;
+      const thead = document.getElementById(scope === 'file' ? 'preview-thead' : 'dt-preview-thead');
+      const tbody = document.getElementById(scope === 'file' ? 'preview-tbody' : 'dt-preview-tbody');
+
+      const mappedFields = PROJECT_FIELDS.filter(f => data.mapping[f.key]);
+      thead.innerHTML = '<tr>' + mappedFields.map(f => `<th>${f.label}</th>`).join('') + '</tr>';
+      tbody.innerHTML = data.rows.slice(0, 5).map(row =>
+        '<tr>' + mappedFields.map(f => {
+          const val = row[data.mapping[f.key]] || '';
+          return `<td>${val}</td>`;
+        }).join('') + '</tr>'
+      ).join('');
+    }
+
+    function validateBatch(scope) {
+      const data = scope === 'file' ? importData : dtImportData;
+      const requiredFields = PROJECT_FIELDS.filter(f => f.required);
+      const missing = requiredFields.filter(f => !data.mapping[f.key]);
+      if (missing.length > 0) {
+        const container = document.getElementById(scope === 'file' ? 'file-validation' : 'dt-validation');
+        container.className = 'validation-summary invalid';
+        container.innerHTML = `<div class="validation-summary-header">${icon('alert-triangle', 16)}必填字段未映射</div>
+          <div class="validation-summary-body"><div class="validation-row"><span class="row-errors">请映射以下必填字段: ${missing.map(f => f.label).join(', ')}</span></div></div>`;
+        container.style.display = '';
+        return;
+      }
+
+      const projects = data.rows.map(row => {
+        const project = {};
+        PROJECT_FIELDS.forEach(field => {
+          if (!data.mapping[field.key]) return;
+          let val = row[data.mapping[field.key]];
+          if (!val || val === '') return;
+          if (field.type === 'number') {
+            project[field.key] = parseFloat(val) || 0;
+          } else if (field.type === 'member') {
+            const trimmed = String(val).trim();
+            const member = Cache.members.find(m =>
+              m.name === trimmed ||
+              m.name === val ||
+              m.id === parseInt(val)
+            );
+            if (member) {
+              project[field.key] = member.id;
+            } else {
+              project[field.key] = 0;
+              project._unmatchedOwner = trimmed;
+            }
+          } else if (field.type === 'status' || field.type === 'group') {
+            project[field.key] = String(val).trim();
+          } else if (field.type === 'priority') {
+            const prEntry = Object.entries(STATIC_CONFIG.priority).find(([k, v]) => v.label === val || k === val);
+            project[field.key] = prEntry ? prEntry[0] : val;
+          } else if (field.type === 'delivered') {
+            const s = String(val).trim();
+            const isNo = ['否', 'N', 'n', 'no', 'NO', 'No', 'false', 'FALSE', 'False', '0'].includes(s);
+            project[field.key] = isNo ? '否' : '是';
+          } else if (field.type === 'date') {
+            project[field.key] = String(val).trim();
+          } else {
+            project[field.key] = String(val).trim();
+          }
+        });
+        if (!project.coefficient) project.coefficient = 1.0;
+        return project;
+      });
+
+      const results = projects.map((project, i) => {
+        const errors = validateProject(project, {});
+        return { rowIndex: i + 2, project, errors };
+      });
+      renderValidationSummary(scope, results);
+    }
+
+    // --- 批量导入 ---
+    function submitBatchImport(scope) {
+      const data = scope === 'file' ? importData : dtImportData;
+      const requiredFields = PROJECT_FIELDS.filter(f => f.required);
+      const missing = requiredFields.filter(f => !data.mapping[f.key]);
+      if (missing.length > 0) {
+        showToast(`请映射必填字段: ${missing.map(f => f.label).join(', ')}`, 'warning');
+        return;
+      }
+
+      const projects = data.rows.map(row => {
+        const project = {};
+        PROJECT_FIELDS.forEach(field => {
+          if (!data.mapping[field.key]) return;
+          let val = row[data.mapping[field.key]];
+          if (!val || val === '') return;
+          if (field.type === 'number') {
+            project[field.key] = parseFloat(val) || 0;
+          } else if (field.type === 'member') {
+            const member = Cache.members.find(m =>
+              m.name === val || m.name === String(val).trim() || m.id === parseInt(val)
+            );
+            project[field.key] = member ? member.id : parseInt(val) || 0;
+          } else if (field.type === 'status') {
+            const statusEntry = Object.entries(STATIC_CONFIG.status).find(([k, v]) =>
+              v.label === val || k === val
+            );
+            project[field.key] = statusEntry ? statusEntry[0] : val;
+          } else if (field.type === 'priority') {
+            const prEntry = Object.entries(STATIC_CONFIG.priority).find(([k, v]) =>
+              v.label === val || k === val
+            );
+            project[field.key] = prEntry ? prEntry[0] : val;
+          } else if (field.type === 'delivered') {
+            const s = String(val).trim();
+            const isNo = ['否', 'N', 'n', 'no', 'NO', 'No', 'false', 'FALSE', 'False', '0'].includes(s);
+            project[field.key] = isNo ? '否' : '是';
+          } else if (field.type === 'date') {
+            project[field.key] = String(val).trim();
+          } else {
+            project[field.key] = String(val).trim();
+          }
+        });
+        if (!project.coefficient) project.coefficient = 1.0;
+        return project;
+      });
+
+      const validationResults = projects.map((project, i) => {
+        const errors = validateProject(project, {});
+        return { rowIndex: i + 2, project, errors };
+      });
+
+      renderValidationSummary(scope, validationResults);
+
+      const validProjects = validationResults.filter(r => r.errors.length === 0).map(r => {
+        const { _unmatchedOwner, ...p } = r.project;
+        if (p.status === 'completed') {
+          p.completedPoints = p.plannedPoints;
+          p.progress = 100;
+          if (!p.actualEndDate) p.actualEndDate = new Date().toISOString().slice(0, 10);
+        }
+        return p;
+      });
+
+      const invalidCount = validationResults.length - validationResults.filter(r => r.errors.length === 0).length;
+
+      if (validProjects.length === 0) {
+        showToast(`校验失败：${invalidCount} 条数据全部无效`, 'warning');
+        return;
+      }
+
+      if (invalidCount > 0) {
+        const confirmed = confirm(`数据中有 ${invalidCount} 条包含错误，将跳过这些行，仅导入 ${validProjects.length} 条有效数据。是否继续？`);
+        if (!confirmed) return;
+      }
+
+      // 批次内去重：客户名称 + 项目负责人 + 首次派单日 相同仅保留第一条
+      const seenKeys = new Set();
+      const toImport = [];
+      let dupInBatch = 0;
+      validProjects.forEach(p => {
+        const key = projectKey(p);
+        if (seenKeys.has(key)) { dupInBatch++; return; }
+        seenKeys.add(key);
+        toImport.push(p);
+      });
+
+      const batchSize = 5;
+      let success = 0;
+      let skipped = 0;
+      let failed = 0;
+      let failReasons = [];
+      const promises = toImport.map((p, i) =>
+        new Promise(resolve => setTimeout(() => API.addProject(p).then(r => {
+          if (r.code === 0) {
+            success++;
+          } else if (r.code === 2) {
+            skipped++;
+          } else {
+            failed++;
+            const reason = r.error?.message || '未知错误';
+            if (!failReasons.includes(reason)) failReasons.push(reason);
+          }
+          resolve();
+        }).catch(err => {
+          failed++;
+          const reason = err.message || '网络错误';
+          if (!failReasons.includes(reason)) failReasons.push(reason);
+          resolve();
+        }), i * (50 * Math.floor(i / batchSize)))
+        ));
+
+      Promise.all(promises).then(() => {
+        const dupTotal = skipped + dupInBatch;
+        let msg = `成功导入 ${success} 条项目`
+          + (dupTotal > 0 ? `，跳过 ${dupTotal} 条重复` : '')
+          + (failed > 0 ? `，失败 ${failed} 条` : '')
+          + (invalidCount > 0 ? `，跳过 ${invalidCount} 条无效` : '');
+        if (failReasons.length > 0) msg += `\n失败原因: ${failReasons.join('; ')}`;
+        showToast(msg);
+        closeAddModal();
+        reloadProjects();
+      });
+    }
+
+    async function reloadProjects() {
+      API.clearCache();
+      const res = await API.getProjects();
+      allProjects = res.data;
+      renderStatBar();
+      applyFilters();
+    }
+
+    // ========== 删除项目 ==========
+    async function deleteProject(projectId) {
+      const proj = allProjects.find(p => p.id === projectId);
+      const label = proj ? (proj.client || projectId) : projectId;
+      if (!confirm(`确认删除项目「${label}」？此操作不可撤销。`)) return;
+
+      try {
+        const res = await API.deleteProject(projectId);
+        if (res.code === 0) {
+          showToast(`项目「${label}」已删除`);
+          await reloadProjects();
+        } else {
+          showToast(`删除失败：${res.error?.message || '请重试'}`, 'warning');
+        }
+      } catch (err) {
+        console.error('deleteProject error:', err);
+        showToast(`删除失败：${err.message || err}`, 'warning');
+      }
+    }
+
+    // ========== 初始化 ==========
+    async function init() {
+      // 设置按钮图标
+      document.getElementById('icon-add-project').innerHTML = icon('plus', 16);
+      document.getElementById('icon-search').innerHTML = icon('search', 16);
+      document.getElementById('icon-detail-edit').innerHTML = icon('edit', 14);
+
+      // 预热缓存（成员、状态配置、优先级配置）
+      await Cache.warmUp();
+
+      // 渲染负责人筛选选项
+      renderOwnerFilter();
+
+      // 显示 skeleton
+      showSkeleton();
+
+      // 加载数据
+      try {
+        const res = await API.getProjects();
+        allProjects = res.data;
+        renderStatBar();
+        applyFilters();
+      } catch (e) {
+        document.getElementById('projects-tbody').innerHTML = `<tr><td colspan="12" style="text-align:center; padding:40px; color:var(--danger);">数据加载失败，请刷新重试</td></tr>`;
+      }
+
+      // 事件绑定
+      document.getElementById('search-input').addEventListener('input', e => {
+        filters.search = e.target.value.trim();
+        applyFilters();
+      });
+      document.getElementById('filter-status').addEventListener('change', e => {
+        filters.status = e.target.value;
+        applyFilters();
+      });
+      document.getElementById('filter-delivered').addEventListener('change', e => {
+        filters.delivered = e.target.value;
+        applyFilters();
+      });
+      document.getElementById('filter-owner').addEventListener('change', e => {
+        filters.ownerId = e.target.value;
+        applyFilters();
+      });
+      document.getElementById('filter-sort').addEventListener('change', e => {
+        sortBy = e.target.value;
+        applyFilters();
+      });
+
+      // 新增项目
+      document.getElementById('btn-add-project').addEventListener('click', openAddModal);
+
+      // Tab 切换
+      document.querySelectorAll('.add-tab').forEach(tab => {
+        tab.addEventListener('click', () => switchTab(tab.dataset.tab));
+      });
+
+      // 模态框关闭
+      document.getElementById('add-close').addEventListener('click', closeAddModal);
+      document.getElementById('add-cancel-btn').addEventListener('click', closeAddModal);
+      document.getElementById('add-modal').addEventListener('click', e => {
+        if (e.target === e.currentTarget) closeAddModal();
+      });
+
+      // 确认新增 — 根据当前 Tab 分流
+      document.getElementById('add-confirm-btn').addEventListener('click', () => {
+        const activeTab = document.querySelector('.add-tab.active').dataset.tab;
+        if (activeTab === 'manual') {
+          submitManualForm();
+        } else if (activeTab === 'file') {
+          submitBatchImport('file');
+        } else if (activeTab === 'dingtalk') {
+          submitBatchImport('dt');
+        }
+      });
+
+      // 文件上传 — 点击选择
+      document.getElementById('upload-zone').addEventListener('click', () => {
+        document.getElementById('file-input').click();
+      });
+      document.getElementById('file-input').addEventListener('change', e => {
+        if (e.target.files[0]) handleFile(e.target.files[0]);
+      });
+
+      // 文件上传 — 拖拽
+      const dropZone = document.getElementById('upload-zone');
+      dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+      dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+      dropZone.addEventListener('drop', e => {
+        e.preventDefault();
+        dropZone.classList.remove('dragover');
+        if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
+      });
+
+      // 钉钉直连 — 搜索 + 加载数据表 + 读取记录
+      document.getElementById('icon-dt-search').innerHTML = icon('search', 14);
+      document.getElementById('dt-search-btn').addEventListener('click', dtSearchBases);
+      document.getElementById('dt-search-keyword').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') dtSearchBases();
+      });
+      document.getElementById('icon-dt-load').innerHTML = icon('download', 14);
+      document.getElementById('dt-load-tables-btn').addEventListener('click', dtLoadTables);
+      document.getElementById('icon-dt-records').innerHTML = icon('table', 14);
+      document.getElementById('dt-load-records-btn').addEventListener('click', dtLoadRecords);
+      document.getElementById('dt-back-btn').addEventListener('click', () => {
+        document.getElementById('dt-step2').style.display = 'none';
+        document.getElementById('dt-step1').style.display = '';
+      });
+
+      // 单独录入 — 实时校验（blur 时校验单个字段）
+      const blurFields = ['m-client', 'm-points', 'm-coeff', 'm-start', 'm-end'];
+      blurFields.forEach(fieldId => {
+        document.getElementById(fieldId).addEventListener('blur', () => {
+          const project = {
+            client: document.getElementById('m-client').value.trim(),
+            group: document.getElementById('m-group').value,
+            ownerId: parseInt(document.getElementById('m-owner').value) || 0,
+            startDate: document.getElementById('m-start').value,
+            expectedEndDate: document.getElementById('m-end').value,
+            status: document.getElementById('m-status').value,
+            plannedPoints: parseFloat(document.getElementById('m-points').value) || 0,
+            coefficient: parseFloat(document.getElementById('m-coeff').value) || 1.0,
+          };
+          const actualEnd = document.getElementById('m-actual').value;
+          if (actualEnd) project.actualEndDate = actualEnd;
+
+          const fieldKey = fieldId.replace('m-', '');
+          const keyMap = { 'points': 'plannedPoints', 'coeff': 'coefficient', 'start': 'startDate', 'end': 'expectedEndDate' };
+          const realKey = keyMap[fieldKey] || fieldKey;
+          const fieldConfig = PROJECT_FIELDS.find(f => f.key === realKey);
+          if (!fieldConfig) return;
+          const errors = validateProject(project, {});
+          const myErrors = errors.filter(e => e.includes(fieldConfig.label));
+          const errEl = document.getElementById(`err-${fieldKey}`);
+          const groupEl = document.getElementById(`fg-${fieldKey}`);
+          if (errEl) errEl.classList.remove('show');
+          if (groupEl) groupEl.classList.remove('has-error');
+          if (myErrors.length > 0 && document.getElementById(fieldId).value.trim()) {
+            showFieldError(fieldKey, myErrors[0]);
+          }
+        });
+      });
+
+      // 单独录入 — owner change 时清除错误
+      document.getElementById('m-owner').addEventListener('change', () => {
+        clearFieldError('owner');
+      });
+
+      // 设置关闭按钮图标
+      document.getElementById('add-close').innerHTML = icon('x', 20);
+      document.getElementById('detail-close').innerHTML = icon('x', 20);
+      document.getElementById('status-close').innerHTML = icon('x', 20);
+
+      // 模态框事件
+      document.getElementById('detail-close').addEventListener('click', closeDetailModal);
+      document.getElementById('detail-close-btn').addEventListener('click', closeDetailModal);
+      document.getElementById('detail-edit-btn').addEventListener('click', () => {
+        if (currentDetailProject) openStatusModal(currentDetailProject.id);
+      });
+      document.getElementById('detail-modal').addEventListener('click', e => {
+        if (e.target === e.currentTarget) closeDetailModal();
+      });
+
+      document.getElementById('status-close').addEventListener('click', closeStatusModal);
+      document.getElementById('status-cancel-btn').addEventListener('click', closeStatusModal);
+      document.getElementById('status-save-btn').addEventListener('click', saveStatus);
+      document.getElementById('status-modal').addEventListener('click', e => {
+        if (e.target === e.currentTarget) closeStatusModal();
+      });
+
+      // ESC 关闭模态框
+      document.addEventListener('keydown', e => {
+        if (e.key === 'Escape') {
+          if (document.getElementById('add-modal').classList.contains('show')) closeAddModal();
+          else if (document.getElementById('status-modal').classList.contains('show')) closeStatusModal();
+          else if (document.getElementById('detail-modal').classList.contains('show')) closeDetailModal();
+        }
+      });
+    }
+
+    init();
+  </script>
+</body>
+</html>

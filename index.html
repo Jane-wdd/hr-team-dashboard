@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>团队看板 — HR实施工作台</title>
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    .loading-skeleton {
+      padding: 40px;
+      text-align: center;
+      color: var(--text-sub);
+      font-size: 14px;
+    }
+    .loading-skeleton .skel-bar {
+      display: inline-block;
+      width: 40px;
+      height: 4px;
+      border-radius: 2px;
+      background: var(--border-strong);
+      margin: 0 3px;
+      animation: skelPulse 1s ease infinite;
+    }
+    .loading-skeleton .skel-bar:nth-child(2) { animation-delay: .15s; }
+    .loading-skeleton .skel-bar:nth-child(3) { animation-delay: .3s; }
+    @keyframes skelPulse { 0%,100%{opacity:.3} 50%{opacity:1} }
+    .donut-wrapper { position: relative; width: 160px; height: 160px; flex-shrink: 0; }
+    .progress-section { margin-bottom: 12px; }
+    .progress-label { display: flex; justify-content: space-between; font-size: 12px; color: var(--text-sub); margin-bottom: 6px; }
+    .progress-label .rate { font-weight: 600; color: var(--text); }
+    .bar-chart-area { position: relative; }
+    .target-line {
+      position: absolute;
+      left: 0; right: 0;
+      border-top: 2px dashed var(--danger);
+      z-index: 5;
+    }
+    .target-line span {
+      position: absolute;
+      right: 0; top: -18px;
+      font-size: 11px;
+      color: var(--danger);
+      font-weight: 600;
+      background: var(--surface);
+      padding: 0 4px;
+    }
+    .rank-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 12px;
+      border-radius: var(--radius-md);
+      transition: background .2s ease;
+      cursor: pointer;
+    }
+    .rank-row:hover { background: var(--surface-alt); }
+    .rank-num { width: 24px; text-align: center; font-weight: 700; color: var(--text-muted); font-size: 14px; }
+    .rank-num.top1 { color: var(--warning); }
+    .rank-num.top2 { color: var(--text-sub); }
+    .rank-num.top3 { color: var(--danger); }
+    .rank-info { flex: 1; min-width: 0; }
+    .rank-name { font-size: 14px; font-weight: 600; color: var(--text); }
+    .rank-role { font-size: 12px; color: var(--text-sub); }
+    .rank-points { text-align: right; flex-shrink: 0; }
+    .rank-points-val { font-size: 16px; font-weight: 700; color: var(--text); }
+    .rank-points-label { font-size: 11px; color: var(--text-sub); }
+    .rank-progress { width: 100%; margin-top: 4px; }
+    .trend-summary { display: flex; gap: 24px; }
+    .trend-summary-item { text-align: center; }
+    .trend-summary-val { font-size: 20px; font-weight: 700; color: var(--text); }
+    .trend-summary-label { font-size: 11px; color: var(--text-sub); }
+    .stat-mini {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      padding: 12px 8px;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border);
+      background: var(--surface-alt);
+    }
+    .stat-mini-icon { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+    .stat-mini-val { font-size: 20px; font-weight: 700; color: var(--text); }
+    .stat-mini-label { font-size: 11px; color: var(--text-sub); }
+    .kpi-edit-input {
+      width: 100%;
+      font: inherit;
+      font-size: 28px;
+      font-weight: 700;
+      color: var(--text);
+      background: transparent;
+      border: none;
+      border-bottom: 2px dashed var(--border-strong);
+      padding: 0 0 2px;
+      outline: none;
+      cursor: text;
+    }
+    .kpi-edit-input:focus { border-bottom-color: var(--primary); }
+    .kpi-edit-input.date { font-size: 20px; }
+  </style>
+</head>
+<body data-page="dashboard">
+  <aside class="app-nav">
+    <div class="nav-brand">
+      <div class="nav-brand-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11H5a2 2 0 0 0-2 2v7h6V11Z"/><path d="M19 11h-6v9h6v-9Z"/><path d="M15 3.5 12 7l-3-3.5L12 1l3 2.5Z"/></svg>
+      </div>
+      <div class="nav-brand-text">HR实施工作台<small>项目进度 · 积分追踪</small></div>
+    </div>
+    <nav class="nav-items">
+      <a href="index.html" data-nav="dashboard">团队看板</a>
+      <a href="members.html" data-nav="members">成员工作台</a>
+      <a href="owner-view.html" data-nav="owner">负责人视图</a>
+      <a href="projects.html" data-nav="projects">项目列表</a>
+      <a href="calculation.html" data-nav="calculation">积分计算</a>
+    </nav>
+    <div class="nav-footer">
+      <div class="nav-footer-avatar">吴</div>
+      <div class="nav-footer-info"><strong>吴丹丹</strong><span>实施主管</span></div>
+    </div>
+  </aside>
+  <main class="app-content">
+    <div class="page-header">
+      <div class="page-header-left">
+        <h1>团队看板</h1>
+        <p>2026 Q3 季度项目进度与积分追踪总览</p>
+      </div>
+      <div class="page-header-actions">
+        <button class="btn btn-ghost" onclick="handleRefresh()">
+          <span id="refresh-icon"></span>刷新数据
+        </button>
+        <button class="btn btn-primary" onclick="handleAddProject()">
+          <span id="add-icon"></span>新增项目
+        </button>
+      </div>
+    </div>
+    <div class="page-body" id="page-body">
+      <div class="loading-skeleton" id="loading">
+        数据加载中
+        <span class="skel-bar"></span>
+        <span class="skel-bar"></span>
+        <span class="skel-bar"></span>
+      </div>
+    </div>
+  </main>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabase-config.js"></script>
+  <script src="api.js?v=22"></script>
+  <script src="components.js?v=7"></script>
+  <script>
+    document.getElementById('refresh-icon').innerHTML = icon('refresh', 16);
+    document.getElementById('add-icon').innerHTML = icon('plus', 16);
+
+    function handleRefresh() {
+      API.clearCache();
+      showToast('数据已刷新');
+      loadDashboard();
+    }
+
+    function handleAddProject() {
+      showToast('新增项目功能开发中', 'warning');
+    }
+
+    // 进度条颜色：与成员工作台一致 —— ≤70% 红 / 70%~90% 橙 / 90%~100% 蓝 / ≥100% 绿
+    function getProgressClass(rate) {
+      if (rate >= 100) return 'success';   // 绿
+      if (rate >= 90) return '';           // 蓝（默认色）
+      if (rate > 70) return 'warning';     // 橙
+      return 'danger';                     // 红
+    }
+
+    // 保存满意度均分（保留 2 位小数）
+    async function saveSatisfaction(val) {
+      const v = Math.round((parseFloat(val) || 0) * 100) / 100;
+      const res = await API.updateQuarterMeta({ satisfactionScore: v });
+      if (res.code === 0) {
+        showToast('满意度均分已保存');
+        await loadDashboard();
+      } else {
+        showToast('保存失败：请先在 Supabase 执行迁移脚本 supabase-migration-dashboard-stats.sql', 'warning');
+      }
+    }
+
+    // 保存数据统计截止时间（季度进度按此日期重新计算）
+    async function saveStatDate(val) {
+      const res = await API.updateQuarterMeta({ statDate: val || null });
+      if (res.code === 0) {
+        showToast('数据统计截止时间已保存');
+        await loadDashboard();
+      } else {
+        showToast('保存失败：请先在 Supabase 执行迁移脚本 supabase-migration-dashboard-stats.sql', 'warning');
+      }
+    }
+
+    async function loadDashboard() {
+      const loadingEl = document.getElementById('loading');
+      if (loadingEl) loadingEl.style.display = 'block';
+
+      const [statsRes, membersRes, activitiesRes, quarterRes, projectsRes] = await Promise.all([
+        API.getTeamStats(),
+        API.getMembers(),
+        API.getActivities(8),
+        API.getQuarterOverview(),
+        API.getProjects()
+      ]);
+
+      const stats = statsRes.data;
+      const members = membersRes.data;
+      const activities = activitiesRes.data;
+      const q = quarterRes.data;
+      const allProjects = projectsRes.data;
+      const weeklyTrend = stats.weeklyTrend;
+
+      // 实施主管等非实施角色不计入团队口径
+      const sortedMembers = [...members].filter(isTeamCountedMember).sort((a, b) => b.currentPoints - a.currentPoints);
+      const maxPoints = Math.max(...weeklyTrend.map(w => w.points));
+      const targetLinePct = maxPoints > 0 ? (stats.teamTarget / maxPoints * 100) : 0;
+
+      // 趋势摘要改为按数据动态计算，避免写死的历史值（旧 quarters 口径）
+      const lastTrend = weeklyTrend.length ? (Number(weeklyTrend[weeklyTrend.length - 1].points) || 0) : 0;
+      const prevTrend = weeklyTrend.length > 1 ? (Number(weeklyTrend[weeklyTrend.length - 2].points) || 0) : 0;
+      const weekGain = weeklyTrend.length > 1 ? lastTrend - prevTrend : lastTrend;
+      const weekAvg = weeklyTrend.length ? lastTrend / weeklyTrend.length : 0;
+      const remainToTarget = Math.max(stats.teamTarget - stats.teamCurrent, 0);
+      // 数据统计截止时间（默认 2026-09-27）与满意度均分
+      const statDate = q.statDate || '2026-09-27';
+      const satisfaction = q.satisfactionScore == null ? 0 : (Number(q.satisfactionScore) || 0);
+
+      // 季度进度 = 统计日期所在周数 / 季度总周数
+      const qStart = new Date((q.startDate || '2026-07-01') + 'T00:00:00');
+      const qStat = new Date(statDate + 'T00:00:00');
+      const elapsedDays = Math.max(0, Math.floor((qStat - qStart) / 86400000));
+      const weeksElapsed = Math.min(q.weeksTotal || 13, Math.floor(elapsedDays / 7) + 1);
+      const weeksLeft = Math.max((q.weeksTotal || 0) - weeksElapsed, 0);
+      const weekProgress = q.weeksTotal > 0 ? (weeksElapsed / q.weeksTotal * 100).toFixed(1) : '0.0';
+      const fmtNum = n => Number((Number(n) || 0).toFixed(1));
+
+      // 小组积分完成率（上海组 / 深圳组）：按成员所属组汇总，排除实施主管
+      const groupMap = {};
+      sortedMembers.forEach(m => {
+        const g = m.group || '未分组';
+        if (!groupMap[g]) groupMap[g] = { current: 0, projected: 0, target: 0, count: 0 };
+        groupMap[g].current += Number(m.currentPoints) || 0;
+        groupMap[g].projected += Number(m.projectedPoints) || 0;
+        groupMap[g].target += Number(m.quarterlyTarget) || 0;
+        groupMap[g].count += 1;
+      });
+      const round2 = n => Math.round((Number(n) || 0) * 100) / 100;
+      const groupStats = Object.keys(groupMap).map(g => {
+        const d = groupMap[g];
+        const current = round2(d.current);
+        const projected = round2(d.projected);
+        const target = round2(d.target);
+        return {
+          name: g,
+          count: d.count,
+          current,
+          projected,
+          target,
+          rate: target > 0 ? current / target * 100 : 0,
+          projRate: target > 0 ? projected / target * 100 : 0,
+        };
+      });
+
+      // 项目状态分布：按项目「当前阶段」统计
+      const statusList = [
+        { key: '实施中', label: '实施中', color: '#2563EB' },
+        { key: '维护中', label: '维护中', color: '#F59E0B' },
+        { key: '已移交', label: '已移交', color: '#10B981' },
+        { key: '待派单', label: '待派单', color: '#94A3B8' },
+      ];
+
+      const circumference = 2 * Math.PI * 60;
+      let accumulated = 0;
+      const donutSegments = statusList.map(s => {
+        const count = stats.statusCounts[s.key] || 0;
+        const ratio = stats.totalProjects > 0 ? count / stats.totalProjects : 0;
+        const length = ratio * circumference;
+        const offset = accumulated;
+        accumulated += length;
+        return { ...s, count, length, offset };
+      });
+
+      const html = `
+        <!-- KPI Cards -->
+        <div class="grid grid-5" style="margin-bottom: 24px;">
+          <div class="kpi-card fade-in">
+            <div class="kpi-label">${icon('trending-up', 16)}当前积分完成率</div>
+            <div class="kpi-value">${Number(stats.currentRate).toFixed(2)}<small>%</small></div>
+            <div class="kpi-trend up">${icon('trending-up', 14)}相比上周 +5.4%</div>
+          </div>
+          <div class="kpi-card success fade-in">
+            <div class="kpi-label">${icon('target', 16)}预计积分完成率</div>
+            <div class="kpi-value">${Number(stats.projectedRate).toFixed(2)}<small>%</small></div>
+            <div class="kpi-trend up">${icon('trending-up', 14)}季度末预测</div>
+          </div>
+          <div class="kpi-card info fade-in">
+            <div class="kpi-label">${icon('trophy', 16)}满意度均分</div>
+            <div class="kpi-value">
+              <input class="kpi-edit-input" type="number" step="0.01" min="0" max="10"
+                     value="${satisfaction.toFixed(2)}"
+                     onchange="saveSatisfaction(this.value)"/>
+            </div>
+            <div class="kpi-trend">${icon('edit', 14)}点击可编辑（2 位小数）</div>
+          </div>
+          <div class="kpi-card warning fade-in">
+            <div class="kpi-label">${icon('calendar', 16)}季度进度</div>
+            <div class="kpi-value">${weeksElapsed}<small>/${q.weeksTotal} 周</small></div>
+            <div class="kpi-trend">${icon('clock', 14)}已过 ${weekProgress}%</div>
+          </div>
+          <div class="kpi-card fade-in">
+            <div class="kpi-label">${icon('calendar', 16)}数据统计截止时间</div>
+            <div class="kpi-value">
+              <input class="kpi-edit-input date" type="date" value="${statDate}"
+                     onchange="saveStatDate(this.value)"/>
+            </div>
+            <div class="kpi-trend">${icon('clock', 14)}按此日期计算季度进度</div>
+          </div>
+        </div>
+
+        <!-- Points Progress + Status Distribution -->
+        <div class="grid grid-2" style="margin-bottom: 24px;">
+          <div class="card fade-in">
+            <div class="card-header">
+              <h3>积分完成进度</h3>
+              <span class="card-sub">季度目标 ${stats.teamTarget} 分</span>
+            </div>
+            <div class="card-body">
+              <div style="margin-bottom: 20px;">
+                <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:8px;">
+                  <span style="font-size:13px; color:var(--text-sub);">当前已完成</span>
+                  <span style="font-size:18px; font-weight:700; color:var(--primary);">${stats.teamCurrent} <small style="font-size:13px; color:var(--text-sub);">/ ${stats.teamTarget}</small></span>
+                </div>
+                <div class="progress-bar">
+                  <div class="progress-bar-fill" style="width: ${stats.currentRate}%;"></div>
+                </div>
+                <div style="text-align:right; font-size:12px; color:var(--text-sub); margin-top:4px;">${Number(stats.currentRate).toFixed(2)}%</div>
+              </div>
+              <div>
+                <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:8px;">
+                  <span style="font-size:13px; color:var(--text-sub);">预计季度完成</span>
+                  <span style="font-size:18px; font-weight:700; color:var(--success);">${stats.teamProjected} <small style="font-size:13px; color:var(--text-sub);">/ ${stats.teamTarget}</small></span>
+                </div>
+                <div class="progress-bar">
+                  <div class="progress-bar-fill success" style="width: ${stats.projectedRate}%;"></div>
+                </div>
+                <div style="text-align:right; font-size:12px; color:var(--text-sub); margin-top:4px;">${Number(stats.projectedRate).toFixed(2)}%</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card fade-in">
+            <div class="card-header">
+              <h3>项目状态分布</h3>
+              <span class="card-sub">共 ${stats.totalProjects} 个项目</span>
+            </div>
+            <div class="card-body" style="display:flex; align-items:center; gap:24px; justify-content:center; flex-wrap:wrap;">
+              <div class="donut-wrapper">
+                <svg width="160" height="160" viewBox="0 0 160 160" style="transform:rotate(-90deg);">
+                  <circle cx="80" cy="80" r="60" fill="none" stroke="${'#E2E8F0'}" stroke-width="20"/>
+                  ${donutSegments.map(seg => {
+                    if (seg.count === 0) return '';
+                    return `<circle cx="80" cy="80" r="60" fill="none" stroke="${seg.color}" stroke-width="20"
+                      stroke-dasharray="${seg.length} ${circumference}" stroke-dashoffset="-${seg.offset}"/>`;
+                  }).join('')}
+                </svg>
+                <div class="donut-center">
+                  <div class="donut-center-value">${stats.totalProjects}</div>
+                  <div class="donut-center-label">项目总数</div>
+                </div>
+              </div>
+              <div class="donut-legend">
+                ${donutSegments.map(seg => `
+                  <div class="donut-legend-item">
+                    <span class="donut-legend-dot" style="background:${seg.color};"></span>
+                    <span style="color:var(--text);">${seg.label}</span>
+                    <strong style="color:var(--text); margin-left:4px;">${seg.count}</strong>
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 小组积分完成率（由成员工作台移入） -->
+        <div class="grid grid-2" style="margin-bottom: 24px;">
+          ${groupStats.map(g => `
+            <div class="card fade-in">
+              <div class="card-header">
+                <h3>${g.name}</h3>
+                <span class="card-sub">${g.count} 名顾问</span>
+              </div>
+              <div class="card-body">
+                <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:8px;">
+                  <span style="font-size:13px; color:var(--text-sub);">当前完成积分</span>
+                  <span style="font-size:18px; font-weight:700; color:var(--primary);">${g.current.toFixed(2)} <small style="font-size:13px; color:var(--text-sub);">/ ${g.target}</small></span>
+                </div>
+                <div class="progress-section">
+                  <div class="progress-label">
+                    <span>小组当前积分完成率</span>
+                    <span class="rate">${g.rate.toFixed(2)}%</span>
+                  </div>
+                  <div class="progress-bar">
+                    <div class="progress-bar-fill ${getProgressClass(g.rate)}" style="width: ${Math.min(g.rate, 100)}%;"></div>
+                  </div>
+                </div>
+                <div class="progress-section">
+                  <div class="progress-label">
+                    <span>小组预计积分完成率</span>
+                    <span class="rate">${g.projRate.toFixed(2)}%</span>
+                  </div>
+                  <div class="progress-bar">
+                    <div class="progress-bar-fill ${getProgressClass(g.projRate)}" style="width: ${Math.min(g.projRate, 100)}%;"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+
+        <!-- Weekly Trend -->
+        <div class="card fade-in" style="margin-bottom: 24px;">
+          <div class="card-header">
+            <h3>周度积分完成趋势</h3>
+            <span class="card-sub">Q3 每周累计完成积分</span>
+          </div>
+          <div class="card-body">
+            <div style="display:flex; gap:32px; align-items:flex-start; flex-wrap:wrap;">
+              <div class="bar-chart-area" style="flex:1; min-width:300px;">
+                <div class="bar-chart" style="height:220px; position:relative;">
+                  <div class="target-line" style="bottom: ${targetLinePct}%;">
+                    <span>目标线 ${stats.teamTarget}分</span>
+                  </div>
+                  ${weeklyTrend.map((w, i) => {
+                    const h = (w.points / maxPoints * 100).toFixed(1);
+                    const isLast = i === weeklyTrend.length - 1;
+                    const color = isLast ? 'var(--success)' : 'var(--primary)';
+                    return `
+                      <div class="bar-item">
+                        <span class="bar-value">${w.points}</span>
+                        <div class="bar" style="height:${h}%; background:${color};"></div>
+                        <span class="bar-label">${w.week}<br><small style="color:var(--text-muted);">${w.date}</small></span>
+                      </div>
+                    `;
+                  }).join('')}
+                </div>
+              </div>
+              <div class="trend-summary" style="flex-direction:column; gap:16px; min-width:160px;">
+                <div class="trend-summary-item">
+                  <div class="trend-summary-val" style="color:var(--success);">${fmtNum(weekGain)}</div>
+                  <div class="trend-summary-label">本周完成（分）</div>
+                </div>
+                <div class="trend-summary-item">
+                  <div class="trend-summary-val" style="color:var(--primary);">${fmtNum(weekAvg)}</div>
+                  <div class="trend-summary-label">周均完成（分）</div>
+                </div>
+                <div class="trend-summary-item">
+                  <div class="trend-summary-val" style="color:var(--danger);">${fmtNum(remainToTarget)}</div>
+                  <div class="trend-summary-label">距目标还需（分）</div>
+                </div>
+                <div class="trend-summary-item">
+                  <div class="trend-summary-val" style="color:var(--warning);">${weeksLeft}</div>
+                  <div class="trend-summary-label">剩余周数</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Member Ranking + Recent Activities -->
+        <div class="grid grid-2">
+          <div class="card fade-in">
+            <div class="card-header">
+              <h3>团队成员积分排行</h3>
+              <a href="members.html" style="font-size:12px; color:var(--primary); display:inline-flex; align-items:center; gap:4px; font-weight:500;">
+                查看全部 ${icon('chevron-right', 14)}
+              </a>
+            </div>
+            <div class="card-body" style="padding:12px;">
+              ${sortedMembers.map((m, i) => {
+                const rate = m.quarterlyTarget > 0 ? (m.currentPoints / m.quarterlyTarget * 100).toFixed(1) : '0.0';
+                const projRate = m.quarterlyTarget > 0 ? (m.projectedPoints / m.quarterlyTarget * 100).toFixed(1) : '0.0';
+                const barClass = rate >= 60 ? 'success' : (rate >= 30 ? 'warning' : 'danger');
+                const rankClass = i === 0 ? 'top1' : (i === 1 ? 'top2' : (i === 2 ? 'top3' : ''));
+                return `
+                  <div class="rank-row" onclick="window.location.href='members.html'">
+                    <div class="rank-num ${rankClass}">${i + 1}</div>
+                    <div class="avatar" style="background:${m.color}22; color:${m.color};">${m.initials}</div>
+                    <div class="rank-info">
+                      <div class="rank-name">${m.name}</div>
+                      <div class="rank-role">${m.role}</div>
+                      <div class="rank-progress">
+                        <div class="progress-bar" style="height:6px;">
+                          <div class="progress-bar-fill ${barClass}" style="width:${rate}%;"></div>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="rank-points">
+                      <div class="rank-points-val">${m.currentPoints}<small style="font-size:12px; color:var(--text-sub);">/${m.quarterlyTarget}</small></div>
+                      <div class="rank-points-label">预计 ${projRate}%</div>
+                    </div>
+                  </div>
+                `;
+              }).join('')}
+            </div>
+          </div>
+
+          <div class="card fade-in">
+            <div class="card-header">
+              <h3>最近活动</h3>
+              <span class="card-sub">最新 ${activities.length} 条记录</span>
+            </div>
+            <div class="card-body">
+              <div class="timeline">
+                ${activities.map(a => {
+                  const project = allProjects.find(p => p.id === a.projectId);
+                  const status = project ? project.status : 'in-progress';
+                  const itemClass = status === 'completed' ? 'success' : (status === 'blocked' ? 'danger' : '');
+                  return `
+                    <div class="timeline-item ${itemClass}">
+                      <div class="timeline-title">${a.action}</div>
+                      <div class="timeline-date">${a.time}</div>
+                      <div class="timeline-desc">${project ? project.name : a.projectId} · ${a.member}</div>
+                    </div>
+                  `;
+                }).join('')}
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+
+      const body = document.getElementById('page-body');
+      body.innerHTML = html;
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      loadDashboard();
+      // 切回本页时自动刷新
+      bindAutoRefresh(loadDashboard);
+    });
+  </script>
+</body>
+</html>

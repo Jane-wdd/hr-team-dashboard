@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>成员工作台 — HR实施工作台</title>
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    .member-card { transition: box-shadow .2s ease, transform .2s ease; }
+    .member-card:hover { box-shadow: var(--shadow-md); transform: translateY(-2px); }
+    .progress-section { margin-bottom: 12px; }
+    .progress-label { display: flex; justify-content: space-between; font-size: 12px; color: var(--text-sub); margin-bottom: 6px; }
+    .progress-label .rate { font-weight: 600; color: var(--text); }
+    .member-card-section { margin-top: 16px; border-top: 1px solid var(--border); padding-top: 12px; }
+    .stat-unit { font-size: 12px; font-weight: 400; color: var(--text-sub); }
+  </style>
+</head>
+<body data-page="members">
+  <aside class="app-nav">
+    <div class="nav-brand">
+      <div class="nav-brand-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11H5a2 2 0 0 0-2 2v7h6V11Z"/><path d="M19 11h-6v9h6v-9Z"/><path d="M15 3.5 12 7l-3-3.5L12 1l3 2.5Z"/></svg>
+      </div>
+      <div class="nav-brand-text">HR实施工作台<small>项目进度 · 积分追踪</small></div>
+    </div>
+    <nav class="nav-items">
+      <a href="index.html" data-nav="dashboard">团队看板</a>
+      <a href="members.html" data-nav="members">成员工作台</a>
+      <a href="owner-view.html" data-nav="owner">负责人视图</a>
+      <a href="projects.html" data-nav="projects">项目列表</a>
+      <a href="calculation.html" data-nav="calculation">积分计算</a>
+    </nav>
+    <div class="nav-footer">
+      <div class="nav-footer-avatar">吴</div>
+      <div class="nav-footer-info"><strong>吴丹丹</strong><span>实施主管</span></div>
+    </div>
+  </aside>
+  <main class="app-content">
+    <div class="page-header">
+      <div class="page-header-left">
+        <h1>成员工作台</h1>
+        <p>团队成员个人项目进度与积分完成情况</p>
+      </div>
+      <div class="page-header-actions">
+        <button class="btn btn-primary" id="addMemberBtn">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+          新增成员
+        </button>
+        <button class="btn btn-ghost" id="exportBtn">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="12" x2="12" y1="20" y2="10"/><line x1="18" x2="18" y1="20" y2="4"/><line x1="6" x2="6" y1="20" y2="16"/></svg>
+          导出报表
+        </button>
+        <button class="btn btn-ghost" id="refreshBtn">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+          刷新
+        </button>
+      </div>
+    </div>
+    <div class="page-body">
+      <!-- 汇总区 -->
+      <div class="grid grid-4 fade-in" id="summarySection" style="margin-bottom: 24px;"></div>
+
+      <!-- 筛选栏 -->
+      <div class="filter-bar">
+        <select class="filter-select" id="groupFilter">
+          <option value="">全部组别</option>
+          <option value="上海组">上海组</option>
+          <option value="深圳组">深圳组</option>
+        </select>
+        <select class="filter-select" id="roleFilter">
+          <option value="">全部角色</option>
+          <option value="实施主管">实施主管</option>
+          <option value="高级实施顾问">高级实施顾问</option>
+          <option value="实施顾问">实施顾问</option>
+        </select>
+        <select class="filter-select" id="statusFilter">
+          <option value="">全部状态</option>
+          <option value="planning">规划中</option>
+          <option value="in-progress">进行中</option>
+          <option value="testing">测试中</option>
+          <option value="completed">已完成</option>
+          <option value="blocked">阻塞中</option>
+        </select>
+        <select class="filter-select" id="sortFilter">
+          <option value="points-desc">按积分降序</option>
+          <option value="rate-desc">按完成率降序</option>
+          <option value="name-asc">按姓名</option>
+        </select>
+      </div>
+
+      <!-- 成员卡片网格 -->
+      <div class="grid grid-3 fade-in" id="memberGrid"></div>
+    </div>
+  </main>
+
+
+  <!-- 新增成员模态框 -->
+  <div class="modal-overlay" id="addMemberModal">
+    <div class="modal" style="max-width: 480px;">
+      <div class="modal-header">
+        <h3>新增团队成员</h3>
+        <button class="modal-close" id="addMemberCloseBtn">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="add-form">
+          <div class="form-group">
+            <label class="form-label">姓名 <span class="req">*</span></label>
+            <input type="text" class="form-input" id="am-name" placeholder="如 庄勋凯" />
+            <div class="field-error" id="am-err-name"></div>
+          </div>
+          <div class="form-row" style="gap: 16px;">
+            <div class="form-group" style="flex: 1;">
+              <label class="form-label">组别 <span class="req">*</span></label>
+              <select class="form-input" id="am-group">
+                <option value="上海组">上海组</option>
+                <option value="深圳组">深圳组</option>
+              </select>
+            </div>
+            <div class="form-group" style="flex: 1;">
+              <label class="form-label">角色 <span class="req">*</span></label>
+              <select class="form-input" id="am-role">
+                <option value="实施顾问">实施顾问</option>
+                <option value="实施主管">实施主管</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group" style="margin-top: 16px;">
+            <label class="form-label">季度目标积分</label>
+            <input type="number" class="form-input" id="am-target" placeholder="如 18.50" min="0" step="0.01" value="0" />
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" id="addMemberCancelBtn">取消</button>
+        <button class="btn btn-primary" id="addMemberConfirmBtn">确认添加</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 编辑成员模态框 -->
+  <div class="modal-overlay" id="editMemberModal">
+    <div class="modal" style="max-width: 480px;">
+      <div class="modal-header">
+        <h3>编辑成员</h3>
+        <button class="modal-close" id="editMemberCloseBtn">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="add-form">
+          <div class="form-group">
+            <label class="form-label">姓名 <span class="req">*</span></label>
+            <input type="text" class="form-input" id="em-name" placeholder="如 庄勋凯" />
+            <div class="field-error" id="em-err-name"></div>
+          </div>
+          <div class="form-row" style="gap: 16px;">
+            <div class="form-group" style="flex: 1;">
+              <label class="form-label">组别 <span class="req">*</span></label>
+              <select class="form-input" id="em-group">
+                <option value="上海组">上海组</option>
+                <option value="深圳组">深圳组</option>
+              </select>
+            </div>
+            <div class="form-group" style="flex: 1;">
+              <label class="form-label">当前积分</label>
+              <input type="number" class="form-input" id="em-current" placeholder="如 20.50" min="0" step="0.01" />
+            </div>
+          </div>
+          <div class="form-group" style="margin-top: 16px;">
+            <label class="form-label">季度目标积分</label>
+            <input type="number" class="form-input" id="em-target" placeholder="如 18.50" min="0" step="0.01" />
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" id="editMemberCancelBtn">取消</button>
+        <button class="btn btn-primary" id="editMemberConfirmBtn">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabase-config.js"></script>
+  <script src="api.js?v=22"></script>
+  <script src="components.js?v=7"></script>
+  <script>
+    let allMembers = [];
+    let allProjects = [];
+
+    // ========== 初始化 ==========
+    document.addEventListener('DOMContentLoaded', async () => {
+      // 显示骨架屏
+      renderSkeleton();
+
+      // 导出按钮
+      document.getElementById('exportBtn').addEventListener('click', () => {
+        showToast('报表导出中...', 'success');
+      });
+
+      // 筛选事件
+      document.getElementById('groupFilter').addEventListener('change', renderMembers);
+      document.getElementById('roleFilter').addEventListener('change', renderMembers);
+      document.getElementById('statusFilter').addEventListener('change', renderMembers);
+      document.getElementById('sortFilter').addEventListener('change', renderMembers);
+
+      // ESC 关闭弹窗
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') { closeAddMemberModal(); closeEditMemberModal(); }
+      });
+
+      // 新增成员模态框
+      document.getElementById('addMemberBtn').addEventListener('click', openAddMemberModal);
+      document.getElementById('addMemberCloseBtn').addEventListener('click', closeAddMemberModal);
+      document.getElementById('addMemberCancelBtn').addEventListener('click', closeAddMemberModal);
+      document.getElementById('addMemberModal').addEventListener('click', function(e) {
+        if (e.target === this) closeAddMemberModal();
+      });
+      document.getElementById('addMemberConfirmBtn').addEventListener('click', submitAddMember);
+      document.getElementById('am-name').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') submitAddMember();
+      });
+
+      // 编辑成员模态框
+      document.getElementById('editMemberCloseBtn').addEventListener('click', closeEditMemberModal);
+      document.getElementById('editMemberCancelBtn').addEventListener('click', closeEditMemberModal);
+      document.getElementById('editMemberModal').addEventListener('click', function(e) {
+        if (e.target === this) closeEditMemberModal();
+      });
+      document.getElementById('editMemberConfirmBtn').addEventListener('click', submitEditMember);
+      document.getElementById('em-name').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') submitEditMember();
+      });
+
+      // 刷新按钮
+      document.getElementById('refreshBtn').addEventListener('click', async () => {
+        API.clearCache();
+        showToast('数据已刷新');
+        await loadMemberData();
+      });
+
+      // 加载数据
+      await loadMemberData();
+
+      // 切回本页时自动刷新（如从项目列表改完数据切回来）
+      bindAutoRefresh(loadMemberData);
+    });
+
+    // 加载成员与项目数据并渲染
+    async function loadMemberData() {
+      const [membersRes, projectsRes] = await Promise.all([
+        API.getMembers(),
+        API.getProjects(),
+        Cache.warmUp()
+      ]);
+      allMembers = membersRes.data;
+      allProjects = projectsRes.data;
+
+      renderSummary();
+      renderMembers();
+    }
+
+    // ========== 骨架屏 ==========
+    function renderSkeleton() {
+      const grid = document.getElementById('memberGrid');
+      grid.innerHTML = Array(6).fill(0).map(() => `
+        <div class="member-card" style="opacity: 0.7;">
+          <div class="member-card-header">
+            <div class="avatar avatar-lg" style="background: var(--border);"></div>
+            <div>
+              <div style="height: 16px; width: 80px; background: var(--border); border-radius: 4px; margin-bottom: 6px;"></div>
+              <div style="height: 12px; width: 60px; background: var(--border); border-radius: 4px;"></div>
+            </div>
+          </div>
+          <div class="member-card-stats">
+            ${Array(3).fill(0).map(() => `
+              <div class="member-stat">
+                <div style="height: 11px; width: 40px; background: var(--border); border-radius: 4px; margin-bottom: 6px;"></div>
+                <div style="height: 18px; width: 50px; background: var(--border); border-radius: 4px;"></div>
+              </div>
+            `).join('')}
+          </div>
+          <div style="height: 8px; background: var(--border); border-radius: 4px; margin: 16px 0 12px;"></div>
+          <div style="height: 8px; background: var(--border); border-radius: 4px; margin-bottom: 16px;"></div>
+          <div style="height: 12px; background: var(--border); border-radius: 4px; margin-bottom: 8px;"></div>
+          <div style="height: 12px; background: var(--border); border-radius: 4px; margin-bottom: 8px;"></div>
+          <div style="height: 12px; background: var(--border); border-radius: 4px; width: 60%;"></div>
+        </div>
+      `).join('');
+    }
+
+    // ========== 汇总区 ==========
+    function renderSummary() {
+      // 实施主管等非实施角色不计入团队口径
+      const counted = allMembers.filter(isTeamCountedMember);
+      const totalMembers = counted.length;
+      const round2 = n => Math.round((Number(n) || 0) * 100) / 100;
+      const totalCurrent = round2(counted.reduce((s, m) => s + (Number(m.currentPoints) || 0), 0));
+      const totalTarget = round2(counted.reduce((s, m) => s + (Number(m.quarterlyTarget) || 0), 0));
+      const avgRate = totalTarget > 0 ? (totalCurrent / totalTarget * 100).toFixed(2) : '0.00';
+      const totalProjected = round2(counted.reduce((s, m) => s + (Number(m.projectedPoints) || 0), 0));
+      const projectedRate = totalTarget > 0 ? (totalProjected / totalTarget * 100).toFixed(2) : '0.00';
+
+      document.getElementById('summarySection').innerHTML = `
+        <div class="kpi-card">
+          <div class="kpi-label">${icon('users', 16)} 团队总人数</div>
+          <div class="kpi-value">${totalMembers}<small>人</small></div>
+        </div>
+        <div class="kpi-card info">
+          <div class="kpi-label">${icon('target', 16)} 团队总积分</div>
+          <div class="kpi-value">${totalCurrent}<small>/${totalTarget}</small></div>
+        </div>
+        <div class="kpi-card warning">
+          <div class="kpi-label">${icon('bar-chart', 16)} 团队平均完成率</div>
+          <div class="kpi-value">${avgRate}<small>%</small></div>
+        </div>
+        <div class="kpi-card success">
+          <div class="kpi-label">${icon('trending-up', 16)} 预计季度完成率</div>
+          <div class="kpi-value">${projectedRate}<small>%</small></div>
+        </div>
+      `;
+    }
+
+    // ========== 筛选与排序 ==========
+    function getFilteredMembers() {
+      const group = document.getElementById('groupFilter').value;
+      const role = document.getElementById('roleFilter').value;
+      const status = document.getElementById('statusFilter').value;
+      const sortBy = document.getElementById('sortFilter').value;
+
+      // 实施主管（如吴丹丹）不在成员工作台展示
+      let filtered = allMembers.filter(isTeamCountedMember);
+
+      if (group) {
+        filtered = filtered.filter(m => (m.group || '') === group);
+      }
+
+      if (role) {
+        filtered = filtered.filter(m => m.role === role);
+      }
+
+      if (status) {
+        filtered = filtered.filter(m => {
+          const projects = allProjects.filter(p => p.ownerId === m.id);
+          return projects.some(p => p.status === status);
+        });
+      }
+
+      switch (sortBy) {
+        case 'points-desc':
+          filtered.sort((a, b) => b.currentPoints - a.currentPoints);
+          break;
+        case 'rate-desc':
+          filtered.sort((a, b) => {
+            const rateA = a.quarterlyTarget > 0 ? (a.currentPoints / a.quarterlyTarget) : 0;
+            const rateB = b.quarterlyTarget > 0 ? (b.currentPoints / b.quarterlyTarget) : 0;
+            return rateB - rateA;
+          });
+          break;
+        case 'name-asc':
+          filtered.sort((a, b) => a.name.localeCompare(b.name, 'zh-CN'));
+          break;
+      }
+
+      return filtered;
+    }
+
+    // 头像缩写：3 个字取后 2 个字；2 个字（或更少）取全部
+    function memberInitials(name) {
+      const s = String(name == null ? '' : name).trim();
+      if (!s) return '?';
+      if (s.length <= 2) return s;
+      return s.slice(-2);
+    }
+
+    // ========== 进度条颜色 ==========
+    // ≤70% 红 / 70%~90% 橙 / 90%~100% 蓝 / ≥100% 绿
+    function getProgressClass(rate) {
+      if (rate >= 100) return 'success';   // 绿
+      if (rate >= 90) return '';           // 蓝（默认色）
+      if (rate > 70) return 'warning';     // 橙
+      return 'danger';                     // 红
+    }
+
+    // ========== 渲染成员卡片 ==========
+    function renderMembers() {
+      const members = getFilteredMembers();
+      const grid = document.getElementById('memberGrid');
+
+      if (members.length === 0) {
+        grid.innerHTML = `<div style="grid-column: 1 / -1; text-align: center; padding: 60px; color: var(--text-sub); font-size: 14px;">没有符合条件的成员</div>`;
+        return;
+      }
+
+      grid.innerHTML = members.map(member => {
+        const projects = allProjects.filter(p => p.ownerId === member.id);
+        const currentRate = member.quarterlyTarget > 0 ? (member.currentPoints / member.quarterlyTarget * 100) : 0;
+        const projectedRate = member.quarterlyTarget > 0 ? (member.projectedPoints / member.quarterlyTarget * 100) : 0;
+        const currentClass = getProgressClass(currentRate);
+        const projectedClass = getProgressClass(projectedRate);
+
+        return `
+          <div class="member-card">
+            <div class="member-card-header">
+              <div class="avatar avatar-lg" style="background: ${member.color}; color: #fff;">${memberInitials(member.name)}</div>
+              <div>
+                <div class="member-card-name">${member.name}</div>
+                <div class="member-card-role">${member.group || '未分组'} · ${member.role}</div>
+              </div>
+            </div>
+            <div class="member-card-stats">
+              <div class="member-stat">
+                <div class="member-stat-label">季度目标</div>
+                <div class="member-stat-value">${member.quarterlyTarget}<span class="stat-unit"> 分</span></div>
+              </div>
+              <div class="member-stat">
+                <div class="member-stat-label">当前积分</div>
+                <div class="member-stat-value">${member.currentPoints}<span class="stat-unit"> 分</span></div>
+              </div>
+              <div class="member-stat">
+                <div class="member-stat-label">预计完成</div>
+                <div class="member-stat-value">${member.projectedPoints}<span class="stat-unit"> 分</span></div>
+              </div>
+            </div>
+            <div class="progress-section">
+              <div class="progress-label">
+                <span>当前完成率</span>
+                <span class="rate">${currentRate.toFixed(2)}%</span>
+              </div>
+              <div class="progress-bar">
+                <div class="progress-bar-fill ${currentClass}" style="width: ${Math.min(currentRate, 100)}%;"></div>
+              </div>
+            </div>
+            <div class="progress-section">
+              <div class="progress-label">
+                <span>预计季度完成率</span>
+                <span class="rate">${projectedRate.toFixed(2)}%</span>
+              </div>
+              <div class="progress-bar">
+                <div class="progress-bar-fill ${projectedClass}" style="width: ${Math.min(projectedRate, 100)}%;"></div>
+              </div>
+            </div>
+            <div class="member-card-section" style="display: flex; gap: 8px;">
+              <button class="btn btn-sm btn-ghost" onclick="window.location.href='owner-view.html?owner=${member.id}'">
+                ${icon('eye', 16)}
+                查看详情
+              </button>
+              <button class="btn btn-sm btn-ghost" onclick="openEditMemberModal(${member.id})">
+                ${icon('edit', 16)}
+                编辑
+              </button>
+              <button class="btn btn-sm btn-ghost" style="color: var(--danger); margin-left: auto;" onclick="deleteMember(${member.id}, '${member.name}', ${projects.length})">
+                ${icon('trash-2', 16)}
+                删除
+              </button>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // ========== 新增成员 ==========
+    const MEMBER_COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4', '#ef4444', '#84cc16'];
+
+    function openAddMemberModal() {
+      document.getElementById('am-name').value = '';
+      document.getElementById('am-group').value = '上海组';
+      document.getElementById('am-role').value = '实施顾问';
+      document.getElementById('am-target').value = '0';
+      document.getElementById('am-err-name').classList.remove('show');
+      document.getElementById('am-name').parentElement.classList.remove('has-error');
+      document.getElementById('addMemberModal').classList.add('show');
+      setTimeout(() => document.getElementById('am-name').focus(), 100);
+    }
+
+    function closeAddMemberModal() {
+      document.getElementById('addMemberModal').classList.remove('show');
+    }
+
+    async function submitAddMember() {
+      const name = document.getElementById('am-name').value.trim();
+      const group = document.getElementById('am-group').value;
+      const role = document.getElementById('am-role').value;
+      const targetPoints = parseFloat(document.getElementById('am-target').value) || 0;
+
+      const errEl = document.getElementById('am-err-name');
+      const groupEl = document.getElementById('am-name').parentElement;
+
+      if (!name) {
+        errEl.textContent = '姓名不能为空';
+        errEl.classList.add('show');
+        groupEl.classList.add('has-error');
+        return;
+      }
+
+      const exists = allMembers.some(m => m.name === name);
+      if (exists) {
+        errEl.textContent = `成员「${name}」已存在`;
+        errEl.classList.add('show');
+        groupEl.classList.add('has-error');
+        return;
+      }
+
+      const initials = memberInitials(name);
+      const color = MEMBER_COLORS[allMembers.length % MEMBER_COLORS.length];
+
+      const btn = document.getElementById('addMemberConfirmBtn');
+      btn.disabled = true;
+      btn.textContent = '添加中...';
+
+      try {
+        const res = await API.addMember({
+          name,
+          group,
+          role,
+          initials,
+          color,
+          quarterlyTarget: targetPoints,
+          currentPoints: 0,
+          projectedPoints: 0,
+          projectCount: 0,
+          completedCount: 0,
+        });
+
+        if (res.code === 0) {
+          showToast(`成员「${name}」添加成功`);
+          closeAddMemberModal();
+          const projectsRes = await API.getProjects();
+          allProjects = projectsRes.data || [];
+          const membersRes = await API.getMembers();
+          allMembers = membersRes.data || [];
+          renderSummary();
+          renderMembers();
+        } else {
+          showToast('添加失败：数据库返回错误', 'warning');
+        }
+      } catch (err) {
+        console.error('addMember error:', err);
+        showToast(`添加失败：${err.message || err}`, 'warning');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '确认添加';
+      }
+    }
+
+    async function deleteMember(memberId, memberName, projectCount) {
+      if (projectCount > 0) {
+        showToast(`「${memberName}」名下还有 ${projectCount} 个项目，无法删除`, 'warning');
+        return;
+      }
+      if (!confirm(`确认删除成员「${memberName}」？此操作不可撤销。`)) return;
+
+      try {
+        const res = await API.deleteMember(memberId);
+        if (res.code === 0) {
+          showToast(`成员「${memberName}」已删除`);
+          allMembers = await API.getMembers().then(r => r.data || []);
+          renderSummary();
+          renderMembers();
+        } else {
+          showToast('删除失败，请重试', 'warning');
+        }
+      } catch (err) {
+        console.error('deleteMember error:', err);
+        showToast(`删除失败：${err.message || err}`, 'warning');
+      }
+    }
+
+    // ========== 编辑成员 ==========
+    let editingMemberId = null;
+
+    function openEditMemberModal(memberId) {
+      const member = allMembers.find(m => m.id === memberId) || getMember(memberId);
+      if (!member) { showToast('未找到该成员', 'warning'); return; }
+      editingMemberId = memberId;
+      document.getElementById('em-name').value = member.name || '';
+      document.getElementById('em-group').value = member.group || '上海组';
+      document.getElementById('em-current').value = member.currentPoints ?? 0;
+      document.getElementById('em-target').value = member.quarterlyTarget ?? 0;
+      const errEl = document.getElementById('em-err-name');
+      errEl.classList.remove('show');
+      document.getElementById('em-name').parentElement.classList.remove('has-error');
+      document.getElementById('editMemberModal').classList.add('show');
+      setTimeout(() => document.getElementById('em-name').focus(), 100);
+    }
+
+    function closeEditMemberModal() {
+      document.getElementById('editMemberModal').classList.remove('show');
+      editingMemberId = null;
+    }
+
+    async function submitEditMember() {
+      if (editingMemberId == null) return;
+      const name = document.getElementById('em-name').value.trim();
+      const group = document.getElementById('em-group').value;
+      const rawCurrent = parseFloat(document.getElementById('em-current').value);
+      const rawTarget = parseFloat(document.getElementById('em-target').value);
+
+      const errEl = document.getElementById('em-err-name');
+      const nameWrap = document.getElementById('em-name').parentElement;
+
+      if (!name) {
+        errEl.textContent = '姓名不能为空';
+        errEl.classList.add('show');
+        nameWrap.classList.add('has-error');
+        return;
+      }
+
+      const dup = allMembers.some(m => m.name === name && m.id !== editingMemberId);
+      if (dup) {
+        errEl.textContent = `成员「${name}」已存在`;
+        errEl.classList.add('show');
+        nameWrap.classList.add('has-error');
+        return;
+      }
+
+      const updates = {
+        name,
+        initials: memberInitials(name),
+        group,
+        currentPoints: isNaN(rawCurrent) || rawCurrent < 0 ? 0 : rawCurrent,
+        quarterlyTarget: isNaN(rawTarget) || rawTarget < 0 ? 0 : rawTarget,
+      };
+
+      const btn = document.getElementById('editMemberConfirmBtn');
+      btn.disabled = true;
+      btn.textContent = '保存中...';
+
+      try {
+        const res = await API.updateMember(editingMemberId, updates);
+        if (res.code === 0) {
+          const skipped = res.stripped || [];
+          if (skipped.includes('group')) {
+            showToast(`成员「${name}」已更新；但数据库缺少 group 列，组别未保存`, 'warning');
+          } else {
+            showToast(`成员「${name}」已更新`);
+          }
+          closeEditMemberModal();
+          const membersRes = await API.getMembers();
+          allMembers = membersRes.data || [];
+          await Cache.warmUp();
+          renderSummary();
+          renderMembers();
+        } else {
+          showToast(`保存失败：${res.error?.message || '请重试'}`, 'warning');
+        }
+      } catch (err) {
+        console.error('updateMember error:', err);
+        showToast(`保存失败：${err.message || err}`, 'warning');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '保存';
+      }
+    }
+
+    // 暴露全局函数
+    window.deleteMember = deleteMember;
+    window.openEditMemberModal = openEditMemberModal;
+  </script>
+</body>
+</html>

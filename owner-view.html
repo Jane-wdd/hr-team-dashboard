@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>负责人视图 — HR实施工作台</title>
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    .owner-selector { display: flex; gap: 12px; flex-wrap: wrap; }
+    .owner-btn {
+      display: flex; flex-direction: column; align-items: center; gap: 6px;
+      padding: 14px 18px; border-radius: var(--radius-md);
+      border: 2px solid transparent; background: var(--surface);
+      cursor: pointer; transition: all .2s ease; min-width: 84px;
+      font-family: inherit;
+    }
+    .owner-btn:hover { background: var(--surface-alt); }
+    .owner-btn.active {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px var(--primary-light);
+    }
+    .owner-btn .avatar { width: 40px; height: 40px; font-size: 14px; }
+    .owner-btn-name { font-size: 13px; font-weight: 600; color: var(--text); }
+    .owner-btn-count { font-size: 11px; color: var(--text-sub); }
+    .ring-wrapper { position: relative; width: 140px; height: 140px; flex-shrink: 0; }
+    .ring-center {
+      position: absolute; top: 50%; left: 50%;
+      transform: translate(-50%, -50%); text-align: center;
+    }
+    .ring-center-value { font-size: 24px; font-weight: 700; color: var(--text); line-height: 1.2; }
+    .ring-center-label { font-size: 11px; color: var(--text-sub); }
+    .ring-caption { margin-top: 10px; font-size: 13px; color: var(--text-sub); text-align: center; }
+    .owner-content { animation: fadeInUp .4s ease forwards; }
+    .stat-unit { font-size: 14px; font-weight: 400; color: var(--text-sub); }
+
+    /* 当前状态多选下拉 */
+    .multi-select { position: relative; }
+    .multi-select-trigger {
+      display: inline-flex; align-items: center; gap: 6px;
+      cursor: pointer; user-select: none; font-family: inherit;
+      background: var(--surface); color: var(--text);
+      border: 1px solid var(--border); border-radius: var(--radius-sm);
+      padding: 6px 12px; font-size: 13px;
+    }
+    .multi-select-trigger:hover { border-color: var(--border-strong); }
+    .multi-select-trigger .caret { transition: transform .2s ease; font-size: 10px; color: var(--text-sub); }
+    .multi-select.open .multi-select-trigger .caret { transform: rotate(180deg); }
+    .multi-select-panel {
+      display: none; position: absolute; top: calc(100% + 6px); left: 0; z-index: 30;
+      min-width: 148px; padding: 6px;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius-md); box-shadow: var(--shadow-lg);
+    }
+    .multi-select.open .multi-select-panel { display: block; }
+    .multi-select-option {
+      display: flex; align-items: center; gap: 8px;
+      padding: 6px 8px; border-radius: var(--radius-sm);
+      font-size: 13px; color: var(--text); cursor: pointer;
+    }
+    .multi-select-option:hover { background: var(--surface-alt); }
+    .multi-select-option input { cursor: pointer; margin: 0; }
+    .multi-select-sep { height: 1px; margin: 4px 2px; background: var(--border); }
+  </style>
+</head>
+<body data-page="owner">
+  <aside class="app-nav">
+    <div class="nav-brand">
+      <div class="nav-brand-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11H5a2 2 0 0 0-2 2v7h6V11Z"/><path d="M19 11h-6v9h6v-9Z"/><path d="M15 3.5 12 7l-3-3.5L12 1l3 2.5Z"/></svg>
+      </div>
+      <div class="nav-brand-text">HR实施工作台<small>项目进度 · 积分追踪</small></div>
+    </div>
+    <nav class="nav-items">
+      <a href="index.html" data-nav="dashboard">团队看板</a>
+      <a href="members.html" data-nav="members">成员工作台</a>
+      <a href="owner-view.html" data-nav="owner">负责人视图</a>
+      <a href="projects.html" data-nav="projects">项目列表</a>
+      <a href="calculation.html" data-nav="calculation">积分计算</a>
+    </nav>
+    <div class="nav-footer">
+      <div class="nav-footer-avatar">吴</div>
+      <div class="nav-footer-info"><strong>吴丹丹</strong><span>实施主管</span></div>
+    </div>
+  </aside>
+  <main class="app-content">
+    <div class="page-header">
+      <div class="page-header-left">
+        <h1>负责人视图</h1>
+        <p>按项目负责人查看项目进度与积分完成详情</p>
+      </div>
+      <div class="page-header-actions">
+        <button class="btn btn-ghost" id="refreshBtn">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M3 21v-5h5"/></svg>
+          刷新
+        </button>
+      </div>
+    </div>
+    <div class="page-body">
+      <!-- 负责人选择栏 -->
+      <div class="filter-bar">
+        <div class="owner-selector" id="ownerSelector"></div>
+      </div>
+
+      <!-- 负责人内容区 -->
+      <div id="ownerContent"></div>
+    </div>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabase-config.js"></script>
+  <script src="api.js?v=22"></script>
+  <script src="components.js?v=7"></script>
+  <script>
+    let allMembers = [];
+    let allProjects = [];
+    let selectedOwnerId = 1;
+    let ownerStatusFilter = [];      // 项目列表筛选：当前状态（多选）
+    let ownerDeliveredFilter = '';   // 项目列表筛选：本季度交付/移交
+    let ownerProjectsAll = [];       // 当前负责人的全部项目（未筛选），供局部刷新使用
+    const RING_CIRCUMFERENCE = 2 * Math.PI * 56; // ≈ 351.86
+
+    // ========== 初始化 ==========
+    document.addEventListener('DOMContentLoaded', async () => {
+      // 刷新按钮
+      document.getElementById('refreshBtn').addEventListener('click', async () => {
+        API.clearCache();
+        showToast('数据已刷新');
+        await loadOwnerData();
+      });
+
+      // 从 URL 读取负责人参数
+      const params = new URLSearchParams(window.location.search);
+      const ownerParam = params.get('owner');
+      if (ownerParam) {
+        const id = parseInt(ownerParam);
+        if (!Number.isNaN(id)) selectedOwnerId = id;
+      }
+
+      // 切回本页时自动刷新
+      bindAutoRefresh(loadOwnerData);
+
+      // 点击多选下拉以外的区域时收起面板
+      document.addEventListener('click', (e) => {
+        const wrap = document.getElementById('ownerStatusMulti');
+        if (wrap && wrap.classList.contains('open') && !wrap.contains(e.target)) {
+          wrap.classList.remove('open');
+        }
+      });
+
+      // 加载并渲染
+      await loadOwnerData();
+    });
+
+    // 加载成员与项目数据并渲染当前负责人视图
+    async function loadOwnerData() {
+      const [membersRes, projectsRes] = await Promise.all([
+        API.getMembers(),
+        API.getProjects(),
+        Cache.warmUp()
+      ]);
+      // 负责人视图只看承接实施项目的成员，排除实施主管（吴丹丹）
+      allMembers = (membersRes.data || []).filter(isTeamCountedMember);
+      allProjects = projectsRes.data;
+
+      if (!allMembers.some(m => m.id === selectedOwnerId)) {
+        selectedOwnerId = allMembers[0] ? allMembers[0].id : selectedOwnerId;
+      }
+
+      renderOwnerSelector();
+      await renderOwner(selectedOwnerId);
+    }
+
+    // ========== 负责人选择栏 ==========
+    function renderOwnerSelector() {
+      const container = document.getElementById('ownerSelector');
+      container.innerHTML = allMembers.map(m => {
+        const projectCount = allProjects.filter(p => p.ownerId === m.id).length;
+        return `
+          <button class="owner-btn ${m.id === selectedOwnerId ? 'active' : ''}" data-owner-id="${m.id}" onclick="selectOwner(${m.id})">
+            <div class="avatar" style="background: ${m.color}; color: #fff;">${memberInitials(m.name)}</div>
+            <div class="owner-btn-name">${m.name}</div>
+            <div class="owner-btn-count">${projectCount}个项目</div>
+          </button>
+        `;
+      }).join('');
+    }
+
+    // ========== 选择负责人 ==========
+    function selectOwner(ownerId) {
+      selectedOwnerId = ownerId;
+      document.querySelectorAll('.owner-btn').forEach(btn => {
+        btn.classList.toggle('active', parseInt(btn.dataset.ownerId) === ownerId);
+      });
+      renderOwner(ownerId);
+    }
+
+    // ========== 进度条颜色 ==========
+    // 颜色规则与成员工作台保持一致：≤70% 红 / >70% 橙 / ≥90% 蓝 / ≥100% 绿
+    function getProgressClass(rate) {
+      if (rate >= 100) return 'success';   // 绿
+      if (rate >= 90) return '';           // 蓝（默认色）
+      if (rate > 70) return 'warning';     // 橙
+      return 'danger';                     // 红
+    }
+
+    // 环形图取色：与颜色条同一套规则
+    function getProgressColor(rate) {
+      if (rate >= 100) return '#10B981';   // 绿
+      if (rate >= 90) return '#2563EB';    // 蓝
+      if (rate > 70) return '#F59E0B';     // 橙
+      return '#EF4444';                    // 红
+    }
+
+    // 积分统一保留 2 位小数
+    function fmtPoints(n) {
+      return (Number(n) || 0).toFixed(2);
+    }
+
+    // 头像缩写：3 个字取后 2 个字；2 个字（或更少）取全部
+    function memberInitials(name) {
+      const s = String(name == null ? '' : name).trim();
+      if (!s) return '?';
+      if (s.length <= 2) return s;
+      return s.slice(-2);
+    }
+
+    // 项目列表排序权重：实施中 → 维护中 → 已移交 → 待派单
+    const STATUS_ORDER = { '实施中': 0, '维护中': 1, '已移交': 2, '待派单': 3 };
+    const STATUS_LIST = Object.keys(STATUS_ORDER);
+
+    // 项目列表筛选条件（当前状态为多选并集 + 本季度交付/移交单选）
+    function matchesOwnerFilters(p) {
+      if (ownerStatusFilter.length && !ownerStatusFilter.includes(p.status)) return false;
+      if (ownerDeliveredFilter) {
+        const d = p.deliveredThisQuarter === '否' ? '否' : '是';
+        if (d !== ownerDeliveredFilter) return false;
+      }
+      return true;
+    }
+
+    // 当前状态多选：勾选/取消某一状态
+    function toggleOwnerStatus(status) {
+      const idx = ownerStatusFilter.indexOf(status);
+      if (idx === -1) ownerStatusFilter.push(status);
+      else ownerStatusFilter.splice(idx, 1);
+      refreshOwnerProjectList();
+    }
+
+    // 当前状态多选：勾选「全部状态」时清空已选
+    function clearOwnerStatus() {
+      ownerStatusFilter = [];
+      refreshOwnerProjectList();
+    }
+
+    // 本季度交付/移交筛选
+    function setOwnerDeliveredFilter(value) {
+      ownerDeliveredFilter = value;
+      refreshOwnerProjectList();
+    }
+
+    // 展开/收起当前状态下拉面板
+    function toggleOwnerStatusPanel(e) {
+      if (e) e.stopPropagation();
+      const wrap = document.getElementById('ownerStatusMulti');
+      if (wrap) wrap.classList.toggle('open');
+    }
+
+    // 项目行 HTML
+    function ownerProjectRow(p) {
+      return `
+        <tr>
+          <td>${p.client}</td>
+          <td>${statusTag(p.status)}</td>
+          <td>${prioritySelect(p)}</td>
+          <td class="col-right" style="font-weight: 700;">${fmtPoints(p.plannedPoints)}</td>
+          <td class="col-right">${(p.coefficient == null ? 1 : Number(p.coefficient)).toFixed(2)}</td>
+          <td class="col-right">${p.deliveredThisQuarter === '否' ? '否' : '是'}</td>
+        </tr>`;
+    }
+
+    // 绑定优先级下拉：变更后写回数据库
+    function bindPrioritySelects(scope) {
+      scope.querySelectorAll('.priority-select').forEach(sel => {
+        sel.addEventListener('change', async function () {
+          const projectId = this.dataset.projectId;
+          const val = this.value;
+          const proj = allProjects.find(p => p.id === projectId);
+          try {
+            await API.updateProject(projectId, { priority: val });
+            if (proj) proj.priority = val;
+            showToast('优先级已更新', 'success');
+          } catch (e) {
+            console.error('Failed to save priority:', e);
+            showToast('更新失败，请重试', 'warning');
+            if (proj) this.value = proj.priority || 'high';
+          }
+        });
+      });
+    }
+
+    // 仅局部刷新项目列表（不重渲染整页，避免多选面板被关闭）
+    function refreshOwnerProjectList() {
+      const tbody = document.getElementById('ownerProjectBody');
+      if (!tbody) return;
+
+      const visible = ownerProjectsAll.filter(matchesOwnerFilters);
+      tbody.innerHTML = visible.length === 0
+        ? `<tr><td colspan="6" style="text-align: center; padding: 40px; color: var(--text-sub);">${ownerProjectsAll.length === 0 ? '暂无负责项目' : '无匹配项目'}</td></tr>`
+        : visible.map(ownerProjectRow).join('');
+      bindPrioritySelects(tbody);
+
+      const countEl = document.getElementById('ownerProjectCount');
+      if (countEl) countEl.textContent = `共 ${visible.length} 个项目`;
+
+      const labelEl = document.getElementById('ownerStatusLabel');
+      if (labelEl) labelEl.textContent = ownerStatusFilter.length ? `已选 ${ownerStatusFilter.length} 项` : '全部状态';
+
+      // 同步面板内复选框勾选状态
+      const panel = document.getElementById('ownerStatusPanel');
+      if (panel) {
+        const allBox = document.getElementById('ownerStatusAll');
+        if (allBox) allBox.checked = ownerStatusFilter.length === 0;
+        panel.querySelectorAll('input[type="checkbox"][value]').forEach(cb => {
+          cb.checked = ownerStatusFilter.includes(cb.value);
+        });
+      }
+    }
+
+    // ========== 当前阶段标签（对应 projects.status 字段，值为中文） ==========
+    const STATUS_TAG_MAP = {
+      '已移交': 'tag-success',
+      '实施中': 'tag-info',
+      '维护中': 'tag-warning',
+      '待派单': 'tag-neutral',
+    };
+    const STATUS_ICON_MAP = {
+      '待派单': 'clock',
+      '实施中': 'play-circle',
+      '维护中': 'activity',
+      '已移交': 'check-circle',
+    };
+    function statusTag(status) {
+      if (!status) return '<span class="tag tag-neutral">—</span>';
+      const tagClass = STATUS_TAG_MAP[status] || 'tag-neutral';
+      const iconName = STATUS_ICON_MAP[status] || 'clock';
+      return `<span class="tag ${tagClass}">${icon(iconName, 12)}${status}</span>`;
+    }
+
+    // ========== 优先级下拉（对应 projects.priority 字段，默认「高」） ==========
+    const PRIORITY_OPTIONS = [
+      { value: 'high', label: '高' },
+      { value: 'medium', label: '中' },
+      { value: 'low', label: '低' },
+    ];
+    function prioritySelect(project) {
+      const current = project.priority || 'high';
+      const options = PRIORITY_OPTIONS.map(o =>
+        `<option value="${o.value}" ${o.value === current ? 'selected' : ''}>${o.label}</option>`
+      ).join('');
+      return `<select class="priority-select" data-project-id="${project.id}"
+                style="width: 64px; text-align: center; font-size: 13px; border: 1px solid var(--border); border-radius: 4px; padding: 2px 4px;">${options}</select>`;
+    }
+
+    // ========== 渲染负责人内容 ==========
+    async function renderOwner(ownerId) {
+      const member = allMembers.find(m => m.id === ownerId);
+      if (!member) return;
+
+      const content = document.getElementById('ownerContent');
+      content.innerHTML = '<div style="text-align: center; padding: 60px; color: var(--text-sub);">加载中...</div>';
+
+      const projectRes = await API.getProjects({ ownerId });
+      // 按当前阶段排序：实施中 → 维护中 → 已移交 → 待派单
+      const projects = (projectRes.data || []).slice().sort((a, b) =>
+        (STATUS_ORDER[a.status] ?? 99) - (STATUS_ORDER[b.status] ?? 99)
+      );
+      ownerProjectsAll = projects;
+
+      // 项目列表筛选（仅影响下方表格，不影响上方积分概览）
+      const visibleProjects = projects.filter(matchesOwnerFilters);
+
+      // 成员已完成积分统一取成员积分（与成员工作台一致），不再用项目 completedPoints 反推
+      const completedPoints = Number(member.currentPoints) || 0;
+      const plannedPoints = projects.reduce((s, p) => s + p.plannedPoints, 0);
+      // 待完成积分（按当前阶段口径）：仅统计「本季度交付/移交 = 是」的项目，取 模块实施积分 × 预计完成系数
+      const pendingByStatus = (status) => projects
+        .filter(p => p.status === status && p.deliveredThisQuarter === '是')
+        .reduce((s, p) => {
+          const planned = Number(p.plannedPoints) || 0;
+          const coeff = p.coefficient == null ? 1 : Number(p.coefficient);
+          return s + planned * coeff;
+        }, 0);
+      const implementingPending = pendingByStatus('实施中');   // 实施中待完成积分
+      const maintainingPending = pendingByStatus('维护中');    // 维护中待完成积分
+      const presalePending = 0;                                // 二次/售前预计完成积分（暂空）
+      const unfinishedPoints = implementingPending + maintainingPending + presalePending;
+      const currentRate = member.quarterlyTarget > 0 ? (completedPoints / member.quarterlyTarget * 100) : 0;
+      const projectedRate = member.quarterlyTarget > 0 ? (member.projectedPoints / member.quarterlyTarget * 100) : 0;
+      const plannedRate = plannedPoints > 0 ? (completedPoints / plannedPoints * 100) : 0;
+
+      // 完成率超过 100% 时环直接铺满（进度封顶 100%，中心百分比仍显示真实值）
+      const currentOffset = RING_CIRCUMFERENCE * (1 - Math.min(currentRate, 100) / 100);
+      const projectedOffset = RING_CIRCUMFERENCE * (1 - Math.min(projectedRate, 100) / 100);
+
+      // 触发淡入动画
+      content.classList.remove('owner-content');
+      void content.offsetWidth;
+      content.classList.add('owner-content');
+
+      content.innerHTML = `
+        <!-- 负责人概览 -->
+        <div class="grid grid-3" style="margin-bottom: 24px;">
+          <div class="kpi-card">
+            <div class="kpi-label">${icon('target', 16)} 季度目标积分</div>
+            <div class="kpi-value">${fmtPoints(member.quarterlyTarget)}<span class="stat-unit"> 分</span></div>
+            <div class="progress-bar" style="margin-top: 12px;">
+              <div class="progress-bar-fill ${getProgressClass(currentRate)}" style="width: ${Math.min(currentRate, 100)}%;"></div>
+            </div>
+          </div>
+          <div class="kpi-card success">
+            <div class="kpi-label">${icon('check-circle', 16)} 当前已完成</div>
+            <div class="kpi-value">${fmtPoints(completedPoints)}<span class="stat-unit"> 分</span></div>
+            <div class="progress-bar" style="margin-top: 12px;">
+              <div class="progress-bar-fill ${getProgressClass(plannedRate)}" style="width: ${Math.min(plannedRate, 100)}%;"></div>
+            </div>
+          </div>
+          <div class="kpi-card info">
+            <div class="kpi-label">${icon('trending-up', 16)} 预计季度完成</div>
+            <div class="kpi-value">${fmtPoints(member.projectedPoints)}<span class="stat-unit"> 分</span></div>
+            <div class="progress-bar" style="margin-top: 12px;">
+              <div class="progress-bar-fill ${getProgressClass(projectedRate)}" style="width: ${Math.min(projectedRate, 100)}%;"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 积分完成概览：概览图在左，积分明细在右 -->
+        <div class="card" style="margin-bottom: 24px;">
+          <div class="card-header">
+            <h3>积分完成概览</h3>
+            <span class="card-sub">${member.name} · ${member.role}</span>
+          </div>
+          <div class="card-body">
+            <div style="display: flex; gap: 40px; align-items: center; flex-wrap: wrap;">
+              <!-- 概览图 -->
+              <div style="display: flex; gap: 32px; justify-content: center; flex-shrink: 0;">
+                <div>
+                  <div class="ring-wrapper">
+                    <svg width="140" height="140" viewBox="0 0 140 140" class="progress-ring">
+                      <circle cx="70" cy="70" r="56" class="progress-ring-bg" style="stroke-width: 10"/>
+                      <circle cx="70" cy="70" r="56" class="progress-ring-fg" stroke="${getProgressColor(currentRate)}" style="stroke-width: 10"
+                        stroke-dasharray="${RING_CIRCUMFERENCE.toFixed(1)}" stroke-dashoffset="${currentOffset.toFixed(1)}"/>
+                    </svg>
+                    <div class="ring-center">
+                      <div class="ring-center-value">${currentRate.toFixed(2)}%</div>
+                      <div class="ring-center-label">当前完成率</div>
+                    </div>
+                  </div>
+                  <div class="ring-caption">当前完成率</div>
+                </div>
+                <div>
+                  <div class="ring-wrapper">
+                    <svg width="140" height="140" viewBox="0 0 140 140" class="progress-ring">
+                      <circle cx="70" cy="70" r="56" class="progress-ring-bg" style="stroke-width: 10"/>
+                      <circle cx="70" cy="70" r="56" class="progress-ring-fg" stroke="${getProgressColor(projectedRate)}" style="stroke-width: 10"
+                        stroke-dasharray="${RING_CIRCUMFERENCE.toFixed(1)}" stroke-dashoffset="${projectedOffset.toFixed(1)}"/>
+                    </svg>
+                    <div class="ring-center">
+                      <div class="ring-center-value">${projectedRate.toFixed(2)}%</div>
+                      <div class="ring-center-label">预计完成率</div>
+                    </div>
+                  </div>
+                  <div class="ring-caption">预计完成率</div>
+                </div>
+              </div>
+              <!-- 积分明细 -->
+              <div style="flex: 1; min-width: 240px; border-left: 1px solid var(--border); padding-left: 40px;">
+                <div class="info-row">
+                  <span class="info-row-label">实施中待完成积分</span>
+                  <span class="info-row-value">${fmtPoints(implementingPending)} 分</span>
+                </div>
+                <div class="info-row">
+                  <span class="info-row-label">维护中待完成积分</span>
+                  <span class="info-row-value">${fmtPoints(maintainingPending)} 分</span>
+                </div>
+                <div class="info-row">
+                  <span class="info-row-label">二次/售前预计完成积分</span>
+                  <span class="info-row-value">—</span>
+                </div>
+                <div class="info-row">
+                  <span class="info-row-label">未完成积分</span>
+                  <span class="info-row-value">${fmtPoints(unfinishedPoints)} 分</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 项目列表表格 -->
+        <div class="card" style="margin-bottom: 24px; overflow: visible;">
+          <div class="card-header">
+            <h3>项目列表</h3>
+            <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+              <div class="multi-select" id="ownerStatusMulti">
+                <button type="button" class="multi-select-trigger" onclick="toggleOwnerStatusPanel(event)">
+                  <span id="ownerStatusLabel">${ownerStatusFilter.length ? `已选 ${ownerStatusFilter.length} 项` : '全部状态'}</span>
+                  <span class="caret">▼</span>
+                </button>
+                <div class="multi-select-panel" id="ownerStatusPanel">
+                  <label class="multi-select-option">
+                    <input type="checkbox" id="ownerStatusAll" ${ownerStatusFilter.length === 0 ? 'checked' : ''} onchange="clearOwnerStatus()"> 全部状态
+                  </label>
+                  <div class="multi-select-sep"></div>
+                  ${STATUS_LIST.map(s => `
+                    <label class="multi-select-option">
+                      <input type="checkbox" value="${s}" ${ownerStatusFilter.includes(s) ? 'checked' : ''} onchange="toggleOwnerStatus('${s}')"> ${s}
+                    </label>
+                  `).join('')}
+                </div>
+              </div>
+              <select class="filter-select" onchange="setOwnerDeliveredFilter(this.value)">
+                <option value="">本季度交付/移交</option>
+                <option value="是" ${ownerDeliveredFilter === '是' ? 'selected' : ''}>是</option>
+                <option value="否" ${ownerDeliveredFilter === '否' ? 'selected' : ''}>否</option>
+              </select>
+              <span class="card-sub" id="ownerProjectCount">共 ${visibleProjects.length} 个项目</span>
+            </div>
+          </div>
+          <div class="card-body" style="padding: 0;">
+            <div style="overflow-x: auto;">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>客户</th>
+                    <th>当前阶段</th>
+                    <th>优先级</th>
+                    <th class="col-right">模块实施积分</th>
+                    <th class="col-right">预计完成系数</th>
+                    <th class="col-right">本季度交付/移交</th>
+                  </tr>
+                </thead>
+                <tbody id="ownerProjectBody">
+                  ${visibleProjects.length === 0 ? `
+                    <tr><td colspan="6" style="text-align: center; padding: 40px; color: var(--text-sub);">${projects.length === 0 ? '暂无负责项目' : '无匹配项目'}</td></tr>
+                  ` : visibleProjects.map(ownerProjectRow).join('')}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      `;
+
+      // 绑定优先级下拉：变更后写回数据库
+      bindPrioritySelects(content);
+    }
+
+    // 暴露全局函数
+    window.selectOwner = selectOwner;
+  </script>
+</body>
+</html>

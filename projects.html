@@ -1215,14 +1215,17 @@
         if (!member) errors.push(`负责人ID ${project.ownerId} 不存在`);
       }
 
+      // 「待派单」项目尚未派单，允许派单日期为空
+      const pendingDispatch = project.status === '待派单';
+
       if (!project.startDate) {
-        errors.push('首次派单日不能为空');
+        if (!pendingDispatch) errors.push('首次派单日不能为空');
       } else if (!/^\d{4}-\d{2}-\d{2}$/.test(project.startDate)) {
         errors.push('首次派单日格式应为 YYYY-MM-DD');
       }
 
       if (!project.expectedEndDate) {
-        errors.push('标准时效到期日不能为空');
+        if (!pendingDispatch) errors.push('标准时效到期日不能为空');
       } else if (!/^\d{4}-\d{2}-\d{2}$/.test(project.expectedEndDate)) {
         errors.push('标准时效到期日格式应为 YYYY-MM-DD');
       } else if (project.startDate && /^\d{4}-\d{2}-\d{2}$/.test(project.startDate) && project.expectedEndDate < project.startDate) {

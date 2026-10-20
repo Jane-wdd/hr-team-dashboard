@@ -4,6 +4,7 @@ logs/
 start.sh
 mock.js
 dingtalk-bridge.js
+dingtalk-bridge.py
 aitable-*.js
 aitable-*.json
 aitable-*.html

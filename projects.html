@@ -30,6 +30,9 @@
     .stat-card.warning::before { background: var(--warning); }
     .stat-card.success::before { background: var(--success); }
     .stat-card.danger::before { background: var(--danger); }
+    .stat-card.clickable { cursor: pointer; transition: transform .15s, box-shadow .15s, border-color .15s; }
+    .stat-card.clickable:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(15, 23, 42, .08); }
+    .stat-card.active { border-color: var(--primary); box-shadow: 0 0 0 2px rgba(37, 99, 235, .18); }
     .stat-card-icon {
       width: 40px; height: 40px;
       border-radius: var(--radius-md);
@@ -722,15 +725,15 @@
       allProjects.forEach(p => { counts[p.status] = (counts[p.status] || 0) + 1; });
 
       const cards = [
-        { label: '总项目数', value: counts.total, icon: 'list-checks', cls: '' },
-        { label: '待派单', value: counts['待派单'] || 0, icon: 'clock', cls: 'neutral' },
-        { label: '实施中', value: counts['实施中'] || 0, icon: 'play-circle', cls: 'info' },
-        { label: '维护中', value: counts['维护中'] || 0, icon: 'activity', cls: 'warning' },
-        { label: '已移交', value: counts['已移交'] || 0, icon: 'check-circle', cls: 'success' },
+        { label: '总项目数', value: counts.total, icon: 'list-checks', cls: '', status: '' },
+        { label: '待派单', value: counts['待派单'] || 0, icon: 'clock', cls: 'neutral', status: '待派单' },
+        { label: '实施中', value: counts['实施中'] || 0, icon: 'play-circle', cls: 'info', status: '实施中' },
+        { label: '维护中', value: counts['维护中'] || 0, icon: 'activity', cls: 'warning', status: '维护中' },
+        { label: '已移交', value: counts['已移交'] || 0, icon: 'check-circle', cls: 'success', status: '已移交' },
       ];
 
       document.getElementById('stat-bar').innerHTML = cards.map(c => `
-        <div class="stat-card ${c.cls} fade-in">
+        <div class="stat-card ${c.cls} clickable fade-in${filters.status === c.status && c.status ? ' active' : ''}" data-status="${c.status}">
           <div class="stat-card-icon">${icon(c.icon, 20)}</div>
           <div>
             <div class="stat-card-value">${c.value}</div>
@@ -1843,6 +1846,17 @@
       });
       document.getElementById('filter-status').addEventListener('change', e => {
         filters.status = e.target.value;
+        renderStatBar();
+        applyFilters();
+      });
+      // 点击统计卡片：按该状态筛选，再次点击同一张则取消
+      document.getElementById('stat-bar').addEventListener('click', e => {
+        const card = e.target.closest('.stat-card');
+        if (!card) return;
+        const st = card.dataset.status || '';
+        filters.status = filters.status === st ? '' : st;
+        document.getElementById('filter-status').value = filters.status;
+        renderStatBar();
         applyFilters();
       });
       document.getElementById('filter-delivered').addEventListener('change', e => {

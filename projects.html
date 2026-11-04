@@ -1742,13 +1742,16 @@
 
       const batchSize = 5;
       let success = 0;
+      let updated = 0;
       let skipped = 0;
       let failed = 0;
       let failReasons = [];
       const promises = toImport.map((p, i) =>
-        new Promise(resolve => setTimeout(() => API.addProject(p).then(r => {
+        new Promise(resolve => setTimeout(() => API.addProject(p, { upsert: true }).then(r => {
           if (r.code === 0) {
             success++;
+          } else if (r.code === 3) {
+            updated++;
           } else if (r.code === 2) {
             skipped++;
           } else {
@@ -1762,12 +1765,13 @@
           const reason = err.message || '网络错误';
           if (!failReasons.includes(reason)) failReasons.push(reason);
           resolve();
-        }), i * (50 * Math.floor(i / batchSize)))
+        }), Math.floor(i / batchSize) * 50)
         ));
 
       Promise.all(promises).then(() => {
         const dupTotal = skipped + dupInBatch;
         let msg = `成功导入 ${success} 条项目`
+          + (updated > 0 ? `，更新 ${updated} 条已存在项目` : '')
           + (dupTotal > 0 ? `，跳过 ${dupTotal} 条重复` : '')
           + (failed > 0 ? `，失败 ${failed} 条` : '')
           + (invalidCount > 0 ? `，跳过 ${invalidCount} 条无效` : '');

@@ -346,8 +346,10 @@ const API = {
   },
 
   // POST /api/projects — 新增项目
-  async addProject(project) {
+  async addProject(project, opts = {}) {
     const { _unmatchedOwner, ...cleanProject } = project;
+    // 记录调用方原始传入的字段，用于重复时只更新表格来源的字段
+    const providedKeys = new Set(Object.keys(project));
     if (!cleanProject.id) {
       cleanProject.id = 'P' + Date.now() + Math.floor(Math.random() * 1000);
     }
@@ -358,19 +360,57 @@ const API = {
     if (!cleanProject.priority) cleanProject.priority = 'medium';
     if (!cleanProject.coefficient) cleanProject.coefficient = 1.0;
     if (!cleanProject.deliveredThisQuarter) cleanProject.deliveredThisQuarter = '是';
+    // 日期字段留空时统一转为 null，避免空字符串触发 invalid date
+    ['startDate', 'expectedEndDate', 'actualEndDate'].forEach(k => {
+      if (cleanProject[k] === '') cleanProject[k] = null;
+    });
 
     // 去重：客户名称 + 项目负责人 + 首次派单日 完全相同 => 视为同一项目，不再重复插入
-    if (cleanProject.client && cleanProject.ownerId && cleanProject.startDate) {
-      const { data: dup, error: dupErr } = await sb.from('projects')
+    // 待派单项目可能没有首次派单日，此时仅按「客户名称 + 负责人」判定
+    if (cleanProject.client && cleanProject.ownerId) {
+      let query = sb.from('projects')
         .select('id,client,ownerId,startDate')
         .eq('client', cleanProject.client)
-        .eq('ownerId', cleanProject.ownerId)
-        .eq('startDate', cleanProject.startDate)
-        .limit(1);
+        .eq('ownerId', cleanProject.ownerId);
+      if (cleanProject.startDate) {
+        query = query.eq('startDate', cleanProject.startDate);
+      }
+      const { data: dup, error: dupErr } = await query.limit(1);
       if (dupErr) {
         console.warn('[API] addProject 去重查询失败，跳过去重:', dupErr);
       } else if (dup && dup.length > 0) {
-        return { code: 2, duplicate: true, data: dup[0] };
+        const existing = dup[0];
+        // 非 upsert 模式：保持原有语义，视为重复不新增
+        if (!opts.upsert) {
+          return { code: 2, duplicate: true, data: existing };
+        }
+        // upsert 模式（批量导入）：用表格最新值覆盖已存在项目
+        // 只更新调用方明确提供的字段，避免把系统内人工填写的数据冲掉
+        const UPDATABLE = ['status', 'group', 'expectedEndDate', 'plannedPoints', 'deliveredThisQuarter', 'coefficient'];
+        const patch = Object.fromEntries(
+          UPDATABLE
+            .filter(k => providedKeys.has(k) && cleanProject[k] !== undefined && cleanProject[k] !== null && cleanProject[k] !== '')
+            .map(k => [k, cleanProject[k]])
+        );
+        if (Object.keys(patch).length === 0) {
+          return { code: 2, duplicate: true, data: existing };
+        }
+        const stripUpd = new Set();
+        for (let attempt = 0; attempt < 5; attempt++) {
+          const upd = Object.fromEntries(Object.entries(patch).filter(([k]) => !stripUpd.has(k)));
+          if (Object.keys(upd).length === 0) break;
+          const { data, error } = await sb.from('projects').update(upd).eq('id', existing.id).select().single();
+          if (!error) {
+            if (existing.ownerId) await this._recomputeMember(existing.ownerId);
+            _invalidateProjects(existing.ownerId);
+            return { code: 3, updated: true, data };
+          }
+          const m = error.message && error.message.match(/Could not find the '(\w+)' column/i);
+          if (m) { stripUpd.add(m[1]); continue; }
+          console.error('[API] addProject update:', error);
+          return { code: 1, data: null, error };
+        }
+        return { code: 1, data: null, error: { message: 'update failed' } };
       }
     }
 

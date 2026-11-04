@@ -15,3 +15,4 @@ README-Supabase.md
 assets/
 publish/
 deprecated/
+.DS_Store

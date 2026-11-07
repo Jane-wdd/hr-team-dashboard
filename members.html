@@ -89,6 +89,7 @@
         <select class="filter-select" id="sortFilter">
           <option value="points-desc">按积分降序</option>
           <option value="rate-desc">按完成率降序</option>
+          <option value="projected-desc">按预计积分完成率降序</option>
           <option value="name-asc">按姓名</option>
         </select>
       </div>
@@ -398,6 +399,13 @@
           filtered.sort((a, b) => {
             const rateA = a.quarterlyTarget > 0 ? (a.currentPoints / a.quarterlyTarget) : 0;
             const rateB = b.quarterlyTarget > 0 ? (b.currentPoints / b.quarterlyTarget) : 0;
+            return rateB - rateA;
+          });
+          break;
+        case 'projected-desc':
+          filtered.sort((a, b) => {
+            const rateA = a.quarterlyTarget > 0 ? (a.projectedPoints / a.quarterlyTarget) : 0;
+            const rateB = b.quarterlyTarget > 0 ? (b.projectedPoints / b.quarterlyTarget) : 0;
             return rateB - rateA;
           });
           break;

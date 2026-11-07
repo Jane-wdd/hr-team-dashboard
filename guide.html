@@ -44,6 +44,15 @@
     .step-body { font-size: 13px; color: var(--text-sub); line-height: 1.9; }
     .step-body ul { margin: 0; padding-left: 18px; }
     .step-body strong { color: var(--text); font-weight: 600; }
+    .legend-row {
+      display: flex; align-items: center; gap: 10px;
+      padding: 8px 0; font-size: 13px; color: var(--text-sub);
+      border-bottom: 1px dashed var(--border);
+    }
+    .legend-row:last-of-type { border-bottom: none; }
+    .legend-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+    .legend-range { color: var(--text); font-weight: 600; min-width: 118px; }
+    .legend-note { font-size: 12px; color: var(--text-sub); line-height: 1.9; margin: 10px 0 0; }
     .faq { font-size: 13px; color: var(--text-sub); line-height: 1.9; }
     .faq dt { color: var(--text); font-weight: 600; margin-top: 12px; }
     .faq dt:first-child { margin-top: 0; }
@@ -159,6 +168,36 @@
                 <li><strong>积分计算</strong>：查看积分规则与计算示例。</li>
               </ul>
             </div>
+          </div>
+        </div>
+
+        <div class="card" style="margin-top: 20px;">
+          <div class="card-header"><h3>进度颜色规则</h3></div>
+          <div class="card-body">
+            <div class="legend-row">
+              <span class="legend-dot" style="background:#EF4444;"></span>
+              <span class="legend-range">≤ 70%</span>
+              <span>红色 — 明显落后，需要重点关注</span>
+            </div>
+            <div class="legend-row">
+              <span class="legend-dot" style="background:#F59E0B;"></span>
+              <span class="legend-range">&gt; 70% ~ &lt; 90%</span>
+              <span>橙色 — 进度偏慢，需加快节奏</span>
+            </div>
+            <div class="legend-row">
+              <span class="legend-dot" style="background:#2563EB;"></span>
+              <span class="legend-range">≥ 90% ~ &lt; 100%</span>
+              <span>蓝色 — 接近达标</span>
+            </div>
+            <div class="legend-row">
+              <span class="legend-dot" style="background:#10B981;"></span>
+              <span class="legend-range">≥ 100%</span>
+              <span>绿色 — 已达标</span>
+            </div>
+            <p class="legend-note">
+              成员卡片、负责人视图、项目列表的进度条与环形图、推送消息里的完成率，全部使用同一套配色。<br>
+              分界点：完成率大于 70% 才变橙，达到 90% 变蓝，达到 100% 变绿。进度条最长显示到 100%，环形图中心仍显示真实百分比（可以超过 100%）。
+            </p>
           </div>
         </div>
 

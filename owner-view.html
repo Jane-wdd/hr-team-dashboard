@@ -524,7 +524,7 @@
         }, 0);
       const implementingPending = pendingByStatus('实施中');   // 实施中待完成积分
       const maintainingPending = pendingByStatus('维护中');    // 维护中待完成积分
-      const presalePending = 0;                                // 二次/售前预计完成积分（暂空）
+      const presalePending = Number(member.presalePoints) || 0; // 二次/售前预计完成积分（成员工作台录入）
       const unfinishedPoints = implementingPending + maintainingPending + presalePending;
       const currentRate = member.quarterlyTarget > 0 ? (completedPoints / member.quarterlyTarget * 100) : 0;
       const projectedRate = member.quarterlyTarget > 0 ? (member.projectedPoints / member.quarterlyTarget * 100) : 0;
@@ -616,7 +616,7 @@
                 </div>
                 <div class="info-row">
                   <span class="info-row-label">二次/售前预计完成积分</span>
-                  <span class="info-row-value">—</span>
+                  <span class="info-row-value">${fmtPoints(presalePending)} 分</span>
                 </div>
                 <div class="info-row">
                   <span class="info-row-label">未完成积分</span>

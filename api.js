@@ -177,7 +177,7 @@ const API = {
     });
     const data = members.map(m => ({
       ...m,
-      projectedPoints: _round2((Number(m.currentPoints) || 0) + (projectedByOwner[m.id] || 0)),
+      projectedPoints: _round2((Number(m.currentPoints) || 0) + (Number(m.presalePoints) || 0) + (projectedByOwner[m.id] || 0)),
     }));
     const result = { code: 0, data };
     _cache.set('members', result);
@@ -268,7 +268,7 @@ const API = {
     const projects = projectsRes.data || [];
     const completedPoints = projects.reduce((s, p) => s + p.completedPoints, 0);
     const plannedPoints = projects.reduce((s, p) => s + p.plannedPoints, 0);
-    const projectedPoints = _round2((Number(member.currentPoints) || 0) + projects.reduce((s, p) => s + projectProjectedPoints(p), 0));
+    const projectedPoints = _round2((Number(member.currentPoints) || 0) + (Number(member.presalePoints) || 0) + projects.reduce((s, p) => s + projectProjectedPoints(p), 0));
     const result = { code: 0, data: { ...member, completedPoints, plannedPoints, projectedPoints, projects } };
     _cache.set(cacheKey, result);
     return result;

@@ -178,6 +178,10 @@
             <label class="form-label">季度目标积分</label>
             <input type="number" class="form-input" id="em-target" placeholder="如 18.50" min="0" step="0.01" />
           </div>
+          <div class="form-group" style="margin-top: 16px;">
+            <label class="form-label">二次/售前预计完成积分</label>
+            <input type="number" class="form-input" id="em-presale" placeholder="如 3.00" min="0" step="0.01" />
+          </div>
         </div>
       </div>
       <div class="modal-footer">
@@ -492,6 +496,10 @@
                 <div class="progress-bar-fill ${projectedClass}" style="width: ${Math.min(projectedRate, 100)}%;"></div>
               </div>
             </div>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px; font-size: 12px; color: var(--text-sub);">
+              <span>二次/售前预计完成积分</span>
+              <span style="color: var(--text); font-weight: 600;">${(Number(member.presalePoints) || 0).toFixed(2)} 分</span>
+            </div>
             <div class="member-card-section" style="display: flex; gap: 8px;">
               <button class="btn btn-sm btn-ghost" onclick="window.location.href='owner-view.html?owner=${member.id}'">
                 ${icon('eye', 16)}
@@ -746,6 +754,7 @@
       document.getElementById('em-group').value = member.group || '上海组';
       document.getElementById('em-current').value = member.currentPoints ?? 0;
       document.getElementById('em-target').value = member.quarterlyTarget ?? 0;
+      document.getElementById('em-presale').value = member.presalePoints ?? 0;
       const errEl = document.getElementById('em-err-name');
       errEl.classList.remove('show');
       document.getElementById('em-name').parentElement.classList.remove('has-error');
@@ -764,6 +773,7 @@
       const group = document.getElementById('em-group').value;
       const rawCurrent = parseFloat(document.getElementById('em-current').value);
       const rawTarget = parseFloat(document.getElementById('em-target').value);
+      const rawPresale = parseFloat(document.getElementById('em-presale').value);
 
       const errEl = document.getElementById('em-err-name');
       const nameWrap = document.getElementById('em-name').parentElement;
@@ -789,6 +799,7 @@
         group,
         currentPoints: isNaN(rawCurrent) || rawCurrent < 0 ? 0 : rawCurrent,
         quarterlyTarget: isNaN(rawTarget) || rawTarget < 0 ? 0 : rawTarget,
+        presalePoints: isNaN(rawPresale) || rawPresale < 0 ? 0 : rawPresale,
       };
 
       const btn = document.getElementById('editMemberConfirmBtn');
@@ -799,8 +810,9 @@
         const res = await API.updateMember(editingMemberId, updates);
         if (res.code === 0) {
           const skipped = res.stripped || [];
-          if (skipped.includes('group')) {
-            showToast(`成员「${name}」已更新；但数据库缺少 group 列，组别未保存`, 'warning');
+          const missing = [skipped.includes('group') ? 'group' : null, skipped.includes('presalePoints') ? 'presalePoints' : null].filter(Boolean);
+          if (missing.length) {
+            showToast(`成员「${name}」已更新；但数据库缺少 ${missing.join('、')} 列，对应字段未保存`, 'warning');
           } else {
             showToast(`成员「${name}」已更新`);
           }

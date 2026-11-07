@@ -46,6 +46,10 @@
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
           新增成员
         </button>
+        <button class="btn btn-ghost" id="importPointsBtn">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+          导入当前积分
+        </button>
         <button class="btn btn-ghost" id="exportBtn">
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="12" x2="12" y1="20" y2="10"/><line x1="18" x2="18" y1="20" y2="4"/><line x1="6" x2="6" y1="20" y2="16"/></svg>
           导出报表
@@ -181,6 +185,34 @@
     </div>
   </div>
 
+  <!-- 导入当前积分模态框 -->
+  <div class="modal-overlay" id="importPointsModal">
+    <div class="modal" style="max-width: 720px;">
+      <div class="modal-header">
+        <h3>从钉钉文档表格导入当前积分</h3>
+        <button class="modal-close" id="importPointsCloseBtn">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label">钉钉文档表格链接 <span class="req">*</span></label>
+          <input type="text" class="form-input" id="ip-url" placeholder="粘贴 https://alidocs.dingtalk.com/i/nodes/..." />
+          <div class="field-error" id="ip-err"></div>
+          <p style="font-size:12px;color:var(--text-sub);margin-top:8px;">
+            读取表中「实施顾问 / 总积分 / 目标积分」列，按姓名匹配系统成员，写入「当前积分」与「季度目标」。实施主管与表内为空的行会自动跳过。
+          </p>
+        </div>
+        <div id="ip-preview" style="margin-top:16px;"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" id="importPointsCancelBtn">取消</button>
+        <button class="btn btn-ghost" id="ipPreviewBtn">读取预览</button>
+        <button class="btn btn-primary" id="ipSyncBtn" disabled>确认同步</button>
+      </div>
+    </div>
+  </div>
+
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="supabase-config.js"></script>
   <script src="api.js?v=22"></script>
@@ -207,7 +239,7 @@
 
       // ESC 关闭弹窗
       document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape') { closeAddMemberModal(); closeEditMemberModal(); }
+        if (e.key === 'Escape') { closeAddMemberModal(); closeEditMemberModal(); closeImportPointsModal(); }
       });
 
       // 新增成员模态框
@@ -232,6 +264,16 @@
       document.getElementById('em-name').addEventListener('keydown', (e) => {
         if (e.key === 'Enter') submitEditMember();
       });
+
+      // 导入当前积分模态框
+      document.getElementById('importPointsBtn').addEventListener('click', openImportPointsModal);
+      document.getElementById('importPointsCloseBtn').addEventListener('click', closeImportPointsModal);
+      document.getElementById('importPointsCancelBtn').addEventListener('click', closeImportPointsModal);
+      document.getElementById('importPointsModal').addEventListener('click', function(e) {
+        if (e.target === this) closeImportPointsModal();
+      });
+      document.getElementById('ipPreviewBtn').addEventListener('click', previewImportedPoints);
+      document.getElementById('ipSyncBtn').addEventListener('click', syncImportedPoints);
 
       // 刷新按钮
       document.getElementById('refreshBtn').addEventListener('click', async () => {
@@ -458,6 +500,123 @@
           </div>
         `;
       }).join('');
+    }
+
+    // ========== 导入当前积分（钉钉文档表格） ==========
+    const DT_BRIDGE_URL = 'http://localhost:3456';
+    let ipPlan = [];
+
+    function ipEsc(s) {
+      return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+    }
+
+    function openImportPointsModal() {
+      document.getElementById('ip-url').value = '';
+      document.getElementById('ip-err').classList.remove('show');
+      document.getElementById('ip-preview').innerHTML = '';
+      document.getElementById('ipSyncBtn').disabled = true;
+      ipPlan = [];
+      document.getElementById('importPointsModal').classList.add('show');
+      setTimeout(() => document.getElementById('ip-url').focus(), 100);
+    }
+
+    function closeImportPointsModal() {
+      document.getElementById('importPointsModal').classList.remove('show');
+    }
+
+    function matchImportRow(row) {
+      const member = allMembers.find(m => m.name === String(row.name || '').trim());
+      if (!member) return { row, member: null, action: 'skip', reason: '未在系统中' };
+      if (member.role === '实施主管') return { row, member, action: 'skip', reason: '实施主管不计入' };
+      const hasTotal = row.total !== null && row.total !== undefined;
+      const hasTarget = row.target !== null && row.target !== undefined;
+      if (!hasTotal && !hasTarget) return { row, member, action: 'skip', reason: '表内为空' };
+      return { row, member, action: 'update', hasTotal, hasTarget, reason: '' };
+    }
+
+    function renderImportPreview(sheetName) {
+      const box = document.getElementById('ip-preview');
+      if (!ipPlan.length) {
+        box.innerHTML = '<p style="font-size:13px;color:var(--text-sub);">未读取到成员行</p>';
+        document.getElementById('ipSyncBtn').disabled = true;
+        return;
+      }
+      const upd = ipPlan.filter(p => p.action === 'update').length;
+      const rows = ipPlan.map(p => {
+        const cur = p.member ? (Number(p.member.currentPoints) || 0).toFixed(2) : '—';
+        const curT = p.member && p.member.quarterlyTarget != null ? Number(p.member.quarterlyTarget).toFixed(2) : '—';
+        const nv = (p.row.total === null || p.row.total === undefined) ? '—' : Number(p.row.total).toFixed(2);
+        const nt = (p.row.target === null || p.row.target === undefined) ? '—' : Number(p.row.target).toFixed(2);
+        let tag;
+        if (p.action === 'update') {
+          const parts = [];
+          if (p.hasTotal) parts.push('当前积分');
+          if (p.hasTarget) parts.push('目标');
+          tag = `<span style="color:var(--success);font-weight:600;">同步${parts.join('+')}</span>`;
+        } else {
+          tag = `<span style="color:var(--text-sub);">跳过（${ipEsc(p.reason)}）</span>`;
+        }
+        return `<tr><td>${ipEsc(p.row.name)}</td><td>${ipEsc(p.row.group || (p.member && p.member.group) || '—')}</td><td class="col-right">${nv}</td><td class="col-right">${cur}</td><td class="col-right">${nt}</td><td class="col-right">${curT}</td><td>${tag}</td></tr>`;
+      }).join('');
+      box.innerHTML = `
+        <p style="font-size:13px;margin-bottom:8px;">数据源：<strong>${ipEsc(sheetName)}</strong>，共 ${ipPlan.length} 行，可同步 <strong>${upd}</strong> 人</p>
+        <div style="max-height:300px;overflow:auto;border:1px solid var(--border);border-radius:8px;">
+          <table class="data-table">
+            <thead><tr><th>姓名</th><th>组别</th><th class="col-right">表格总积分</th><th class="col-right">系统当前积分</th><th class="col-right">表格目标</th><th class="col-right">系统目标</th><th>处理</th></tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>`;
+      document.getElementById('ipSyncBtn').disabled = upd === 0;
+    }
+
+    async function previewImportedPoints() {
+      const url = document.getElementById('ip-url').value.trim();
+      const err = document.getElementById('ip-err');
+      const box = document.getElementById('ip-preview');
+      const btn = document.getElementById('ipPreviewBtn');
+      err.classList.remove('show');
+      if (!url) { err.textContent = '请先粘贴钉钉文档表格链接'; err.classList.add('show'); return; }
+      if (!/^https?:\/\//.test(url)) { err.textContent = '链接格式不对，应以 https:// 开头'; err.classList.add('show'); return; }
+
+      btn.disabled = true;
+      btn.textContent = '读取中...';
+      box.innerHTML = '<p style="font-size:13px;color:var(--text-sub);">正在读取钉钉表格...</p>';
+      try {
+        const resp = await fetch(`${DT_BRIDGE_URL}/api/dingtalk/points?url=${encodeURIComponent(url)}`);
+        const data = await resp.json();
+        if (!resp.ok) throw new Error(data.error || '读取失败');
+        ipPlan = (data.rows || []).map(matchImportRow);
+        renderImportPreview(data.sheet || '');
+        showToast('已读取，请核对后同步');
+      } catch (e) {
+        box.innerHTML = '';
+        err.textContent = `读取失败：${e.message}（该功能需在本机运行本地版工作台，即双击「启动工作台.command」后使用）`;
+        err.classList.add('show');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '读取预览';
+      }
+    }
+
+    async function syncImportedPoints() {
+      const targets = ipPlan.filter(p => p.action === 'update');
+      if (!targets.length) return;
+      const btn = document.getElementById('ipSyncBtn');
+      btn.disabled = true;
+      btn.textContent = '同步中...';
+      let ok = 0;
+      const failed = [];
+      for (const p of targets) {
+        const payload = {};
+        if (p.hasTotal) payload.currentPoints = p.row.total;
+        if (p.hasTarget) payload.quarterlyTarget = p.row.target;
+        const res = await API.updateMember(p.member.id, payload);
+        if (res.code === 0) ok++; else failed.push(p.row.name);
+      }
+      btn.textContent = '确认同步';
+      closeImportPointsModal();
+      showToast(failed.length ? `同步完成 ${ok} 人，失败：${failed.join('、')}` : `已同步 ${ok} 位成员的当前积分与季度目标`, failed.length ? 'warning' : 'success');
+      await loadMemberData();
     }
 
     // ========== 新增成员 ==========

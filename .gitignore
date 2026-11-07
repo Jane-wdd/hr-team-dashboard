@@ -5,6 +5,8 @@ start.sh
 mock.js
 dingtalk-bridge.js
 dingtalk-bridge.py
+push_points.py
+user_map.json
 aitable-*.js
 aitable-*.json
 aitable-*.html

@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>使用说明 — HR实施工作台</title>
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    .guide-wrap { max-width: 920px; }
+    .guide-intro {
+      background: var(--info-light);
+      color: var(--text);
+      border-radius: var(--radius-lg);
+      padding: 16px 20px;
+      font-size: 13px;
+      line-height: 1.8;
+      margin-bottom: 20px;
+    }
+    .step {
+      display: flex; gap: 16px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-sm);
+      padding: 18px 20px;
+      margin-bottom: 14px;
+    }
+    .step-no {
+      flex-shrink: 0;
+      width: 32px; height: 32px;
+      border-radius: 50%;
+      background: var(--primary);
+      color: #fff;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 15px; font-weight: 700;
+    }
+    .step-title { font-size: 15px; font-weight: 600; color: var(--text); }
+    .step-path {
+      display: inline-block; margin: 6px 0 8px;
+      font-size: 12px; color: var(--primary);
+      background: var(--primary-light);
+      border-radius: 6px; padding: 2px 8px;
+    }
+    .step-body { font-size: 13px; color: var(--text-sub); line-height: 1.9; }
+    .step-body ul { margin: 0; padding-left: 18px; }
+    .step-body strong { color: var(--text); font-weight: 600; }
+    .faq { font-size: 13px; color: var(--text-sub); line-height: 1.9; }
+    .faq dt { color: var(--text); font-weight: 600; margin-top: 12px; }
+    .faq dt:first-child { margin-top: 0; }
+    .faq dd { margin: 2px 0 0; }
+  </style>
+</head>
+<body data-page="guide">
+  <aside class="app-nav">
+    <div class="nav-brand">
+      <div class="nav-brand-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11H5a2 2 0 0 0-2 2v7h6V11Z"/><path d="M19 11h-6v9h6v-9Z"/><path d="M15 3.5 12 7l-3-3.5L12 1l3 2.5Z"/></svg>
+      </div>
+      <div class="nav-brand-text">HR实施工作台<small>项目进度 · 积分追踪</small></div>
+    </div>
+    <nav class="nav-items">
+      <a href="index.html" data-nav="dashboard">团队看板</a>
+      <a href="members.html" data-nav="members">成员工作台</a>
+      <a href="owner-view.html" data-nav="owner">负责人视图</a>
+      <a href="projects.html" data-nav="projects">项目列表</a>
+      <a href="calculation.html" data-nav="calculation">积分计算</a>
+      <a href="guide.html" data-nav="guide">使用说明</a>
+    </nav>
+    <div class="nav-footer">
+      <div class="nav-footer-avatar">吴</div>
+      <div class="nav-footer-info"><strong>吴丹丹</strong><span>实施主管</span></div>
+    </div>
+  </aside>
+
+  <main class="app-content">
+    <div class="page-header">
+      <div class="page-header-left">
+        <h1>使用说明</h1>
+        <p>按顺序完成以下四步，即可维护并推送本周期的积分数据</p>
+      </div>
+    </div>
+
+    <div class="page-body">
+      <div class="guide-wrap">
+        <div class="guide-intro">
+          建议每个考核周期开始时更新一次项目，周期内随时维护交付情况，最后同步并推送积分。<br>
+          <strong>钉钉相关功能（表格导入、积分同步、消息推送）只能在本地版使用</strong>：先双击工作区里的「启动工作台」，再打开 http://localhost:3000 。公网版仅用于查看数据。
+        </div>
+
+        <div class="step">
+          <div class="step-no">1</div>
+          <div>
+            <div class="step-title">更新项目列表</div>
+            <span class="step-path">项目列表 → 新增项目 → 从钉钉 AI 表格导入</span>
+            <div class="step-body">
+              <ul>
+                <li>搜索并选择本周期的周报表（如「2026年Q4…」），确认导入<b>当前周期</b>的表，不要选上一季度。</li>
+                <li>导入按「客户 + 负责人」去重：已存在的项目会更新阶段与来源字段，不会重复新增。</li>
+                <li>负责人姓名需与「成员工作台」里的成员一致，否则会提示负责人不在系统成员中。</li>
+                <li>待派单项目允许派单日期为空。</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="step-no">2</div>
+          <div>
+            <div class="step-title">维护项目交付情况</div>
+            <span class="step-path">项目列表 → 编辑项目</span>
+            <div class="step-body">
+              <ul>
+                <li>核对每个项目的<strong>当前阶段</strong>（实施中 / 维护中 / 已移交 / 待派单）。</li>
+                <li>设置<strong>本季度交付/移交</strong>：选「否」的项目不计入预计完成积分。</li>
+                <li>确认<strong>模块实施积分</strong>与<strong>预计完成系数</strong>，它们决定预计完成积分。</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="step-no">3</div>
+          <div>
+            <div class="step-title">同步当前积分</div>
+            <span class="step-path">成员工作台 → 导入当前积分</span>
+            <div class="step-body">
+              <ul>
+                <li>粘贴钉钉在线电子表格链接（含 /nodes/），点「读取预览」。</li>
+                <li>预览核对「表格总积分 / 系统当前积分」与「表格目标 / 系统目标」，确认后点「确认同步」。</li>
+                <li>同步会同时写入<strong>当前积分</strong>和<strong>季度目标</strong>；实施主管与表内为空的行自动跳过。</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="step-no">4</div>
+          <div>
+            <div class="step-title">推送积分</div>
+            <span class="step-path">负责人视图 → 推送积分 → 核对预览 → 确认推送</span>
+            <div class="step-body">
+              <ul>
+                <li>预览会列出每位成员的当前积分、预计完成、季度目标、完成率与接收内容。</li>
+                <li>成员收到「个人积分概览」；实施主管收到「团队汇总」，含各小组目标与预计完成率。</li>
+                <li>没有匹配到钉钉账号的成员会标「无钉钉账号 · 跳过」，不会影响其他人发送。</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="step-no">查看</div>
+          <div>
+            <div class="step-title">查看与复盘</div>
+            <div class="step-body">
+              <ul>
+                <li><strong>团队看板</strong>：团队总览、当前/预计完成率、小组对比。</li>
+                <li><strong>负责人视图</strong>：按负责人查看项目清单与积分进度，可按状态、交付情况筛选。</li>
+                <li><strong>积分计算</strong>：查看积分规则与计算示例。</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <div class="card" style="margin-top: 20px;">
+          <div class="card-header"><h3>常见问题</h3></div>
+          <div class="card-body">
+            <dl class="faq">
+              <dt>页面打不开 / 一直转圈？</dt>
+              <dd>双击「启动工作台」重新启动本地服务，然后访问 http://localhost:3000 。</dd>
+              <dt>点导入或推送提示「仅本地版可用」？</dt>
+              <dd>说明本机代理没启动：确认双击过「启动工作台」，并保持终端窗口运行。</dd>
+              <dt>导入后项目阶段没更新？</dt>
+              <dd>确认导入的是本周期（Q4）的周报表；导入是「按客户 + 负责人」更新，不会覆盖手工改过的其他字段。</dd>
+              <dt>推送时有人被跳过？</dt>
+              <dd>该成员在钉钉里匹配不到账号（如外部/引用用户），需在钉钉通讯录中确认后重新推送。</dd>
+            </dl>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script src="components.js?v=8"></script>
+</body>
+</html>
